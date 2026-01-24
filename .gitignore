@@ -33,5 +33,22 @@ build/
 .vscode/
 
 .env
-application.yml
+application-local.yml
 application-dev.yml
+
+### Node / Next.js ###
+node_modules/
+.next/
+out/
+dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+### Env files (frontend too) ###
+.env.local
+.env.development.local
+.env.production.local
+.env.test.local
+
