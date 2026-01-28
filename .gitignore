@@ -33,7 +33,7 @@ build/
 .vscode/
 
 .env
-application-local.yml
+application.yml
 application-dev.yml
 
 ### Node / Next.js ###
