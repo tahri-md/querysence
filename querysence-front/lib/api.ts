@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://192.168.1.101:8081"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081"
 
 interface ApiOptions {
   method?: string
@@ -59,7 +59,7 @@ async function fetchApi<T>(endpoint: string, options: ApiOptions = {}): Promise<
 
   // Handle empty responses
   const text = await response.text()
-  return text ? JSON.parse(text) : null
+  return (text ? JSON.parse(text) : null) as T
 }
 
 async function refreshToken(): Promise<boolean> {
@@ -88,10 +88,10 @@ async function refreshToken(): Promise<boolean> {
 
 // Auth API
 export const authApi = {
-  login: (username: string, password: string) =>
+  login: (fullName: string, password: string) =>
     fetchApi<{ accessToken: string; refreshToken: string; expiresIn: number }>("/auth/login", {
       method: "POST",
-      body: { username, password },
+      body: { fullName, password },
     }),
 
   register: (email: string, password: string, fullName: string) =>
@@ -275,10 +275,14 @@ export interface AnalysisResult {
     score: number
     level: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL"
     factors: {
-      joinCount: number
-      subqueryDepth: number
-      aggregateCount: number
-    }
+      name: string
+      count: number
+      points: number
+      description: string
+    }[]
+    joinCount: number
+    subqueryDepth: number
+    aggregateCount: number
   }
   indexSuggestions: IndexSuggestion[]
   warnings: string[]

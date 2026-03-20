@@ -31,13 +31,13 @@ public class UserService {
     try {
         Authentication auth = authenticationManager.authenticate(
             new UsernamePasswordAuthenticationToken(
-                authRequest.getUsername(),
+                authRequest.getFullName(),
                 authRequest.getPassword()
             )
         );
 
-        UserDto user =  mapUserToDto(userRepository.findByFullName(authRequest.getUsername()).orElseThrow());
-        String jwt = jwtService.generateToken(authRequest.getUsername());
+        UserDto user =  mapUserToDto(userRepository.findByFullName(authRequest.getFullName()).orElseThrow());
+        String jwt = jwtService.generateToken(authRequest.getFullName());
         return AuthResponse.builder()
                             .accessToken(jwt)
                             .user(user)
@@ -55,7 +55,7 @@ public UserDto getMyInfos(Authentication authentication) {
 
    public UserDto register(UserRegister registredUser) {
     User user = new User();
-    user.setFullName(registredUser.getUsername());
+    user.setFullName(registredUser.getFullName());
     user.setEmail(registredUser.getEmail());
     user.setPassword(new BCryptPasswordEncoder().encode(registredUser.getPassword()));
     user.setIsActive(true);
@@ -70,7 +70,7 @@ public UserDto getMyInfos(Authentication authentication) {
     public UserDto mapUserToDto(User user){
         return UserDto.builder()
                         .email(user.getEmail())
-                        .username(user.getFullName())
+                        .fullName(user.getFullName())
                         .is_active(user.getIsActive())
                         .build();
     }
