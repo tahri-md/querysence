@@ -14,20 +14,33 @@ import java.util.List;
 public class ComplexityAnalyzerService {
 
     private static final int BASE_SCORE = 10;
+    private static final int EXTRA_TABLE_POINTS = 3;
     private static final int JOIN_POINTS = 8;
     private static final int SUBQUERY_POINTS = 12;
     private static final int AGGREGATE_POINTS = 3;
-    private static final int UNION_POINTS = 10;
-    private static final int CASE_POINTS = 5;
-    private static final int WINDOW_FUNCTION_POINTS = 7;
+    private static final int GROUP_BY_POINTS = 3;
+    private static final int ORDER_BY_POINTS = 2;
     private static final int DISTINCT_POINTS = 3;
     private static final int GROUP_BY_HAVING_POINTS = 5;
-    private static final int EXTRA_WHERE_CONDITION_POINTS = 2;
+    private static final int WHERE_CONDITION_POINTS = 1;
+    private static final int EXTRA_WHERE_CONDITION_POINTS = 1;
     private static final int WHERE_THRESHOLD = 5;
 
     public ComplexityReport analyze(ParsedQuery parsedQuery) {
         List<ComplexityReport.Factor> factors = new ArrayList<>();
         int score = BASE_SCORE;
+
+        int tableCount = parsedQuery.getTables().size();
+        if (tableCount > 1) {
+            int tableScore = (tableCount - 1) * EXTRA_TABLE_POINTS;
+            score += tableScore;
+            factors.add(ComplexityReport.Factor.builder()
+                .name("Tables")
+                .count(tableCount)
+                .points(tableScore)
+                .description(tableCount + " table(s) involved")
+                .build());
+        }
 
         // Count joins
         int joinCount = parsedQuery.getJoins().size();
@@ -88,17 +101,45 @@ public class ComplexityAnalyzerService {
                     .points(GROUP_BY_HAVING_POINTS)
                     .description("HAVING clause filters grouped results")
                     .build());
+                } else if (!parsedQuery.getGroupByColumns().isEmpty()) {
+                    score += GROUP_BY_POINTS;
+                    factors.add(ComplexityReport.Factor.builder()
+                        .name("GROUP BY")
+                        .count(parsedQuery.getGroupByColumns().size())
+                        .points(GROUP_BY_POINTS)
+                        .description("Grouping increases sort/hash work")
+                        .build());
+                }
+
+                if (!parsedQuery.getOrderByColumns().isEmpty()) {
+                    score += ORDER_BY_POINTS;
+                    factors.add(ComplexityReport.Factor.builder()
+                        .name("ORDER BY")
+                        .count(parsedQuery.getOrderByColumns().size())
+                        .points(ORDER_BY_POINTS)
+                        .description("Ordering adds sorting cost")
+                        .build());
         }
 
-        // Extra WHERE conditions beyond threshold
+                // WHERE conditions baseline + extra cost beyond threshold
         int whereCount = parsedQuery.getWhereConditions().size();
-        if (whereCount > WHERE_THRESHOLD) {
+                if (whereCount > 0) {
+                    int baselineWhereScore = Math.min(whereCount, WHERE_THRESHOLD) * WHERE_CONDITION_POINTS;
+                    score += baselineWhereScore;
+                    factors.add(ComplexityReport.Factor.builder()
+                        .name("WHERE Conditions")
+                        .count(whereCount)
+                        .points(baselineWhereScore)
+                        .description(whereCount + " filtering condition(s)")
+                        .build());
+                }
+                if (whereCount > WHERE_THRESHOLD) {
             int extraConditions = whereCount - WHERE_THRESHOLD;
             int extraScore = extraConditions * EXTRA_WHERE_CONDITION_POINTS;
             score += extraScore;
             factors.add(ComplexityReport.Factor.builder()
-                    .name("WHERE Conditions")
-                    .count(whereCount)
+                        .name("WHERE Overhead")
+                        .count(extraConditions)
                     .points(extraScore)
                     .description(whereCount + " conditions (>" + WHERE_THRESHOLD + " threshold)")
                     .build());

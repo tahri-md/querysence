@@ -48,8 +48,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth()
   }, [checkAuth])
 
-  const login = async (username: string, password: string) => {
-    const response = await authApi.login(username, password)
+  const login = async (fullName: string, password: string) => {
+    const response = await authApi.login(fullName, password)
     localStorage.setItem("accessToken", response.accessToken)
     localStorage.setItem("refreshToken", response.refreshToken)
     await checkAuth()

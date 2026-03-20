@@ -24,13 +24,13 @@ public class CustomDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user =  userRepository.findByFullName(username)
+        User user = userRepository.findByFullName(username)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         Collection<? extends GrantedAuthority> authorities = getRoles(user.getRole());
 
         return new CustomUserDetails(
-                user.getFullName(),
+            user.getFullName(),
                 user.getEmail(),
                 user.getPassword(),
                 authorities

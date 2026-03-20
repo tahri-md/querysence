@@ -246,7 +246,7 @@ function AnalyzePageContent() {
                   <div className="flex items-center gap-3 p-4 rounded-lg border">
                     <Database className="w-8 h-8 text-muted-foreground" />
                     <div>
-                      <div className="text-2xl font-bold">{result.complexity.factors.joinCount}</div>
+                      <div className="text-2xl font-bold">{result.complexity.joinCount}</div>
                       <div className="text-sm text-muted-foreground">Joins</div>
                     </div>
                   </div>
@@ -254,7 +254,7 @@ function AnalyzePageContent() {
                   <div className="flex items-center gap-3 p-4 rounded-lg border">
                     <Zap className="w-8 h-8 text-muted-foreground" />
                     <div>
-                      <div className="text-2xl font-bold">{result.complexity.factors.subqueryDepth}</div>
+                      <div className="text-2xl font-bold">{result.complexity.subqueryDepth}</div>
                       <div className="text-sm text-muted-foreground">Subquery Depth</div>
                     </div>
                   </div>
@@ -262,7 +262,7 @@ function AnalyzePageContent() {
                   <div className="flex items-center gap-3 p-4 rounded-lg border">
                     <ArrowRight className="w-8 h-8 text-muted-foreground" />
                     <div>
-                      <div className="text-2xl font-bold">{result.complexity.factors.aggregateCount}</div>
+                      <div className="text-2xl font-bold">{result.complexity.aggregateCount}</div>
                       <div className="text-sm text-muted-foreground">Aggregates</div>
                     </div>
                   </div>
