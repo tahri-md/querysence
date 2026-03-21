@@ -119,7 +119,7 @@ public class HistoryService {
     }
 
     private User getUser(String username) {
-        return userRepository.findByFullName(username)
+        return userRepository.findByEmail(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
 

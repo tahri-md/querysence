@@ -35,11 +35,11 @@ public class ComplexityAnalyzerService {
             int tableScore = (tableCount - 1) * EXTRA_TABLE_POINTS;
             score += tableScore;
             factors.add(ComplexityReport.Factor.builder()
-                .name("Tables")
-                .count(tableCount)
-                .points(tableScore)
-                .description(tableCount + " table(s) involved")
-                .build());
+                    .name("Tables")
+                    .count(tableCount)
+                    .points(tableScore)
+                    .description(tableCount + " table(s) involved")
+                    .build());
         }
 
         // Count joins
@@ -101,45 +101,45 @@ public class ComplexityAnalyzerService {
                     .points(GROUP_BY_HAVING_POINTS)
                     .description("HAVING clause filters grouped results")
                     .build());
-                } else if (!parsedQuery.getGroupByColumns().isEmpty()) {
-                    score += GROUP_BY_POINTS;
-                    factors.add(ComplexityReport.Factor.builder()
-                        .name("GROUP BY")
-                        .count(parsedQuery.getGroupByColumns().size())
-                        .points(GROUP_BY_POINTS)
-                        .description("Grouping increases sort/hash work")
-                        .build());
-                }
-
-                if (!parsedQuery.getOrderByColumns().isEmpty()) {
-                    score += ORDER_BY_POINTS;
-                    factors.add(ComplexityReport.Factor.builder()
-                        .name("ORDER BY")
-                        .count(parsedQuery.getOrderByColumns().size())
-                        .points(ORDER_BY_POINTS)
-                        .description("Ordering adds sorting cost")
-                        .build());
+        } else if (!parsedQuery.getGroupByColumns().isEmpty()) {
+            score += GROUP_BY_POINTS;
+            factors.add(ComplexityReport.Factor.builder()
+                    .name("GROUP BY")
+                    .count(parsedQuery.getGroupByColumns().size())
+                    .points(GROUP_BY_POINTS)
+                    .description("Grouping increases sort/hash work")
+                    .build());
         }
 
-                // WHERE conditions baseline + extra cost beyond threshold
+        if (!parsedQuery.getOrderByColumns().isEmpty()) {
+            score += ORDER_BY_POINTS;
+            factors.add(ComplexityReport.Factor.builder()
+                    .name("ORDER BY")
+                    .count(parsedQuery.getOrderByColumns().size())
+                    .points(ORDER_BY_POINTS)
+                    .description("Ordering adds sorting cost")
+                    .build());
+        }
+
+        // WHERE conditions baseline + extra cost beyond threshold
         int whereCount = parsedQuery.getWhereConditions().size();
-                if (whereCount > 0) {
-                    int baselineWhereScore = Math.min(whereCount, WHERE_THRESHOLD) * WHERE_CONDITION_POINTS;
-                    score += baselineWhereScore;
-                    factors.add(ComplexityReport.Factor.builder()
-                        .name("WHERE Conditions")
-                        .count(whereCount)
-                        .points(baselineWhereScore)
-                        .description(whereCount + " filtering condition(s)")
-                        .build());
-                }
-                if (whereCount > WHERE_THRESHOLD) {
+        if (whereCount > 0) {
+            int baselineWhereScore = Math.min(whereCount, WHERE_THRESHOLD) * WHERE_CONDITION_POINTS;
+            score += baselineWhereScore;
+            factors.add(ComplexityReport.Factor.builder()
+                    .name("WHERE Conditions")
+                    .count(whereCount)
+                    .points(baselineWhereScore)
+                    .description(whereCount + " filtering condition(s)")
+                    .build());
+        }
+        if (whereCount > WHERE_THRESHOLD) {
             int extraConditions = whereCount - WHERE_THRESHOLD;
             int extraScore = extraConditions * EXTRA_WHERE_CONDITION_POINTS;
             score += extraScore;
             factors.add(ComplexityReport.Factor.builder()
-                        .name("WHERE Overhead")
-                        .count(extraConditions)
+                    .name("WHERE Overhead")
+                    .count(extraConditions)
                     .points(extraScore)
                     .description(whereCount + " conditions (>" + WHERE_THRESHOLD + " threshold)")
                     .build());
@@ -193,9 +193,12 @@ public class ComplexityAnalyzerService {
     }
 
     private ComplexityReport.Level determineLevel(int score) {
-        if (score <= 25) return ComplexityReport.Level.LOW;
-        if (score <= 50) return ComplexityReport.Level.MEDIUM;
-        if (score <= 75) return ComplexityReport.Level.HIGH;
+        if (score <= 25)
+            return ComplexityReport.Level.LOW;
+        if (score <= 50)
+            return ComplexityReport.Level.MEDIUM;
+        if (score <= 75)
+            return ComplexityReport.Level.HIGH;
         return ComplexityReport.Level.CRITICAL;
     }
 
@@ -209,7 +212,8 @@ public class ComplexityAnalyzerService {
 
         // Too many joins
         if (query.getJoins().size() > 4) {
-            warnings.add("High number of JOINs (" + query.getJoins().size() + ") - consider breaking into multiple queries");
+            warnings.add(
+                    "High number of JOINs (" + query.getJoins().size() + ") - consider breaking into multiple queries");
         }
 
         // Deep subqueries
@@ -225,11 +229,11 @@ public class ComplexityAnalyzerService {
 
         // Check for non-parameterized values that look like user input
         for (ParsedQuery.WhereCondition condition : query.getWhereConditions()) {
-            if (!condition.isParameterized() && condition.getValue() != null 
-                && !condition.getValue().matches("^[0-9]+$") 
-                && !condition.getValue().equals("NULL")
-                && !condition.getValue().equals("TRUE")
-                && !condition.getValue().equals("FALSE")) {
+            if (!condition.isParameterized() && condition.getValue() != null
+                    && !condition.getValue().matches("^[0-9]+$")
+                    && !condition.getValue().equals("NULL")
+                    && !condition.getValue().equals("TRUE")
+                    && !condition.getValue().equals("FALSE")) {
                 warnings.add("Potential security issue: non-parameterized value in WHERE clause");
                 break;
             }

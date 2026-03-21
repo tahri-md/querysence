@@ -61,10 +61,11 @@ function AnalyzePageContent() {
 
   useEffect(() => {
     const queryId = searchParams.get("id")
-    if (queryId) {
+    if (queryId !== null) {
+      const parsedQueryId = parseInt(queryId, 10)
       async function fetchQuery() {
         try {
-          const queryResult = await queryApi.get(parseInt(queryId))
+          const queryResult = await queryApi.get(parsedQueryId)
           setResult(queryResult)
         } catch (error) {
           console.log("Error fetching query:", error)
@@ -281,15 +282,15 @@ function AnalyzePageContent() {
                     <div key={index} className="p-4 rounded-lg border space-y-3">
                       <div className="flex items-start justify-between gap-4">
                         <div className="space-y-1 flex-1">
-                          <div className="font-semibold">{suggestion.table}</div>
+                          <div className="font-semibold">{suggestion.tableName}</div>
                           <div className="text-sm text-muted-foreground">
                             Columns: {suggestion.columns.join(", ")}
                           </div>
                         </div>
-                        {getImpactBadge(suggestion.impact)}
+                        {getImpactBadge(suggestion.impactScore)}
                       </div>
                       <p className="text-sm">{suggestion.reasoning}</p>
-                      <Badge variant="outline">{suggestion.type}</Badge>
+                      <Badge variant="outline">{suggestion.suggestionType}</Badge>
                     </div>
                   ))}
                 </CardContent>

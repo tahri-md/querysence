@@ -45,7 +45,7 @@ public class SchemaManagementService {
 
     @Transactional
     public ProjectResponse create(ProjectCreateRequest request, String username) {
-        User user = userRepository.findByFullName(username)
+        User user = userRepository.findByEmail(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         if (projectRepository.existsByNameAndOwner(request.getName(), user)) {
@@ -65,7 +65,7 @@ public class SchemaManagementService {
 
     @Transactional
     public List<ProjectResponse> listByUser(String username) {
-        User user = userRepository.findByFullName(username)
+        User user = userRepository.findByEmail(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         return projectRepository.findByOwnerOrderByCreatedAtDesc(user).stream()

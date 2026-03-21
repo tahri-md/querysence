@@ -61,7 +61,7 @@ export default function DashboardPage() {
 
     setIsAnalyzing(true)
     try {
-      const result = await queryApi.analyze(quickQuery)
+      const result = await queryApi.analyze(quickQuery, undefined)
       router.push(`/analyze?id=${result.queryId}`)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Analysis failed")

@@ -24,7 +24,7 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { Separator } from "@/components/ui/separator"
 
 export default function LoginPage() {
-  const [username, setUsername] = useState("")
+  const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isOAuthLoading, setIsOAuthLoading] = useState<string | null>(null)
@@ -36,7 +36,7 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      await login(username, password)
+      await login(email, password)
       toast.success("Login successful")
       router.push("/dashboard")
     } catch (error) {
@@ -99,13 +99,13 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username">username</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="username"
-                type="username"
+                id="email"
+                type="email"
                 placeholder="name@example.com"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={isLoading || isOAuthLoading !== null}
               />
