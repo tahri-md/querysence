@@ -1,10 +1,11 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { ChevronRight, Database, FolderPlus, Key, Loader2, Plus, Table2, Trash2, Edit2, X } from "lucide-react"
+import { ChevronRight, Database, FolderPlus, Key, Loader2, Plus, Share2, Table2, Trash2, Edit2, X } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { ProjectSharingDialog } from "@/components/project-sharing-dialog"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -50,6 +51,7 @@ export default function SchemasPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [expandedProjects, setExpandedProjects] = useState<Set<number>>(new Set())
   const [selectedSchema, setSelectedSchema] = useState<Schema | null>(null)
+  const [sharingProjectId, setSharingProjectId] = useState<number | null>(null)
 
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false)
   const [newProjectName, setNewProjectName] = useState("")
@@ -671,6 +673,17 @@ export default function SchemasPage() {
                               <Badge variant="secondary" className="text-xs">
                                 {project.schemaCount}
                               </Badge>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setSharingProjectId(project.id)
+                                }}
+                              >
+                                <Share2 className="h-3 w-3" />
+                              </Button>
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                   <Button
@@ -800,6 +813,12 @@ export default function SchemasPage() {
           </div>
         )}
       </div>
+
+      <ProjectSharingDialog
+        projectId={sharingProjectId || 0}
+        isOpen={sharingProjectId !== null}
+        onClose={() => setSharingProjectId(null)}
+      />
     </div>
   )
 }

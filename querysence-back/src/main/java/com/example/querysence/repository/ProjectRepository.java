@@ -30,4 +30,7 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     Project findByIdWithSchemas(Long id);
     
     boolean existsByNameAndOwner(String name, User owner);
+
+    @Query("SELECT DISTINCT p FROM Project p LEFT JOIN p.owner WHERE p.owner.id = :userId OR EXISTS (SELECT 1 FROM ProjectMember pm WHERE pm.project.id = p.id AND pm.user.id = :userId)")
+    List<Project> findProjectsByUserIdIncludingShared(@Param("userId") Long userId);
 }
