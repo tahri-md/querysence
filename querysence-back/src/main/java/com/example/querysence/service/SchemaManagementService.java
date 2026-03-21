@@ -14,6 +14,7 @@ import com.example.querysence.exception.ResourceNotFoundException;
 import com.example.querysence.model.ColumnDefinition;
 import com.example.querysence.model.IndexDefinition;
 import com.example.querysence.model.Project;
+import com.example.querysence.model.ProjectMember;
 import com.example.querysence.model.SchemaDefinition;
 import com.example.querysence.model.TableDefinition;
 import com.example.querysence.model.User;
@@ -23,6 +24,7 @@ import com.example.querysence.model.dto.ProjectResponse;
 import com.example.querysence.model.dto.SchemaCreateRequest;
 import com.example.querysence.model.dto.SchemaResponse;
 import com.example.querysence.model.dto.TableCreateRequest;
+import com.example.querysence.repository.ProjectMemberRepository;
 import com.example.querysence.repository.ProjectRepository;
 import com.example.querysence.repository.SchemaDefinitionRepository;
 import com.example.querysence.repository.TableDefinitionRepository;
@@ -42,6 +44,9 @@ public class SchemaManagementService {
     private  SchemaDefinitionRepository schemaRepository;
         @Autowired
     private  TableDefinitionRepository tableRepository;
+    
+    @Autowired
+    private ProjectMemberRepository projectMemberRepository;
 
     @Transactional
     public ProjectResponse create(ProjectCreateRequest request, String username) {
@@ -68,7 +73,7 @@ public class SchemaManagementService {
         User user = userRepository.findByEmail(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        return projectRepository.findByOwnerOrderByCreatedAtDesc(user).stream()
+        return projectRepository.findProjectsByUserIdIncludingShared(user.getId()).stream()
                 .map(this::mapToResponseWithSchemas)
                 .toList();
     }
@@ -80,7 +85,14 @@ public class SchemaManagementService {
             throw new ResourceNotFoundException("Project", "id", id);
         }
 
-        if (!project.getOwner().getFullName().equals(username)) {
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        // Check if user is owner or shared member
+        boolean isOwner = project.getOwner().getId().equals(user.getId());
+        boolean isMember = projectMemberRepository.findByProjectIdAndUserId(id, user.getId()).isPresent();
+
+        if (!isOwner && !isMember) {
             throw new ResourceNotFoundException("Project", "id", id);
         }
 
@@ -92,7 +104,11 @@ public class SchemaManagementService {
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Project", "id", id));
 
-        if (!project.getOwner().getFullName().equals(username)) {
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        // Only owner can delete
+        if (!project.getOwner().getId().equals(user.getId())) {
             throw new BadRequestException("You don't have permission to delete this project");
         }
 
@@ -140,8 +156,17 @@ public class SchemaManagementService {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Project", "id", projectId));
 
-        if (!project.getOwner().getFullName().equals(username)) {
-            throw new BadRequestException("You don't have permission to modify this project");
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        // Check if user is owner or editor member
+        boolean isOwner = project.getOwner().getId().equals(user.getId());
+        if (!isOwner) {
+            ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, user.getId())
+                    .orElseThrow(() -> new BadRequestException("You don't have permission to modify this project"));
+            if (member.getRole().name().equals("VIEWER")) {
+                throw new BadRequestException("Only editor/owner can create schemas");
+            }
         }
 
         if (schemaRepository.existsByNameAndProject(request.getName(), project)) {
@@ -186,8 +211,19 @@ public class SchemaManagementService {
         SchemaDefinition schema = schemaRepository.findById(schemaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Schema", "id", schemaId));
 
-        if (!schema.getProject().getOwner().getFullName().equals(username)) {
-            throw new BadRequestException("You don't have permission to delete this schema");
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        Project project = schema.getProject();
+
+        // Check if user is owner or editor member
+        boolean isOwner = project.getOwner().getId().equals(user.getId());
+        if (!isOwner) {
+            ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(project.getId(), user.getId())
+                    .orElseThrow(() -> new BadRequestException("You don't have permission to delete this schema"));
+            if (member.getRole().name().equals("VIEWER")) {
+                throw new BadRequestException("Only editor/owner can delete schemas");
+            }
         }
 
         schemaRepository.delete(schema);
@@ -197,6 +233,21 @@ public class SchemaManagementService {
     public SchemaResponse addTable(Long schemaId, TableCreateRequest request, String username) {
         SchemaDefinition schema = schemaRepository.findById(schemaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Schema", "id", schemaId));
+
+        User user = userRepository.findByEmail(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        Project project = schema.getProject();
+
+        // Check if user is owner or editor member
+        boolean isOwner = project.getOwner().getId().equals(user.getId());
+        if (!isOwner) {
+            ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(project.getId(), user.getId())
+                    .orElseThrow(() -> new BadRequestException("You don't have permission to modify this project"));
+            if (member.getRole().name().equals("VIEWER")) {
+                throw new BadRequestException("Only editor/owner can add tables");
+            }
+        }
 
         if (!schema.getProject().getOwner().getFullName().equals(username)) {
             throw new BadRequestException("You don't have permission to modify this schema");
