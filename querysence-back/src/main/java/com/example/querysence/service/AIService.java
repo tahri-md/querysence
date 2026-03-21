@@ -225,7 +225,7 @@ public class AIService {
 
     private void logUsage(String username, String feature, long responseTimeMs) {
         try {
-            User user = userRepository.findByFullName(username).orElse(null);
+            User user = userRepository.findByEmail(username).orElse(null);
             AIUsageLog log = AIUsageLog.builder()
                     .user(user)
                     .feature(feature)

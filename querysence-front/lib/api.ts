@@ -27,29 +27,11 @@ async function fetchApi<T>(endpoint: string, options: ApiOptions = {}): Promise<
   const response = await fetch(`${API_BASE_URL}${endpoint}`, config)
 
   if (response.status === 401) {
-    // Try to refresh token
-    const refreshed = await refreshToken()
-    if (refreshed) {
-      // Retry the original request
-      const newToken = localStorage.getItem("accessToken")
-      config.headers = {
-        ...config.headers,
-        Authorization: `Bearer ${newToken}`,
-      }
-      const retryResponse = await fetch(`${API_BASE_URL}${endpoint}`, config)
-      if (!retryResponse.ok) {
-        throw new Error(`API Error: ${retryResponse.status}`)
-      }
-      return retryResponse.json()
-    } else {
-      // Redirect to login
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("accessToken")
-        localStorage.removeItem("refreshToken")
-        window.location.href = "/login"
-      }
-      throw new Error("Session expired")
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("accessToken")
+      window.location.href = "/login"
     }
+    throw new Error("Session expired")
   }
 
   if (!response.ok) {
@@ -62,54 +44,47 @@ async function fetchApi<T>(endpoint: string, options: ApiOptions = {}): Promise<
   return (text ? JSON.parse(text) : null) as T
 }
 
-async function refreshToken(): Promise<boolean> {
-  const refreshToken = localStorage.getItem("refreshToken")
-  if (!refreshToken) return false
-
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refreshToken }),
-    })
-
-    if (!response.ok) return false
-
-    const data = await response.json()
-    localStorage.setItem("accessToken", data.accessToken)
-    if (data.refreshToken) {
-      localStorage.setItem("refreshToken", data.refreshToken)
-    }
-    return true
-  } catch {
-    return false
-  }
-}
-
 // Auth API
 export const authApi = {
-  login: (fullName: string, password: string) =>
-    fetchApi<{ accessToken: string; refreshToken: string; expiresIn: number }>("/auth/login", {
+  login: (email: string, password: string) =>
+    fetchApi<{ accessToken: string; user: { id?: number; email: string; fullName: string; role?: string; is_active?: boolean } }>("/auth/login", {
       method: "POST",
-      body: { fullName, password },
+      body: { email, password },
     }),
 
   register: (email: string, password: string, fullName: string) =>
-    fetchApi<{ id: number; email: string; fullName: string; role: string }>("/auth/register", {
+    fetchApi<{ id?: number; email: string; fullName: string; role?: string; is_active?: boolean }>("/auth/register", {
       method: "POST",
       body: { email, password, fullName },
     }),
 
-  logout: () => {
-    const refreshToken = localStorage.getItem("refreshToken")
-    return fetchApi("/auth/logout", {
-      method: "POST",
-      body: { refreshToken },
-    })
-  },
+  logout: async () => Promise.resolve(),
 
   me: () =>
-    fetchApi<{ id: number; email: string; fullName: string; role: string }>("/auth/me"),
+    fetchApi<{ id?: number; email: string; fullName: string; role?: string; is_active?: boolean }>("/auth/me"),
+
+  updateProfile: (fullName: string) =>
+    fetchApi<{ id?: number; email: string; fullName: string; role?: string; is_active?: boolean }>("/auth/me", {
+      method: "PUT",
+      body: { fullName },
+    }),
+
+  changePassword: (oldPassword: string, newPassword: string) =>
+    fetchApi<{ message: string }>("/auth/change-password", {
+      method: "POST",
+      body: { oldPassword, newPassword },
+    }),
+
+  updateEmail: (newEmail: string) =>
+    fetchApi<{ message: string; user: { id?: number; email: string; fullName: string; role?: string; is_active?: boolean } }>("/auth/email", {
+      method: "PUT",
+      body: { newEmail },
+    }),
+
+  deleteAccount: () =>
+    fetchApi<{ message: string }>("/auth/me", {
+      method: "DELETE",
+    }),
 }
 
 // Projects API
@@ -154,15 +129,12 @@ export const schemasApi = {
 // Query Analysis API
 export const queryApi = {
   parse: (sql: string, dialect: string = "POSTGRESQL") =>
-    fetchApi<ParseResult>("/queries/parse", {
-      method: "POST",
-      body: { sql, dialect },
-    }),
+    fetchApi<ParseResult>(`/queries/parse?sql=${encodeURIComponent(sql)}&dialect=${encodeURIComponent(dialect)}`),
 
-  analyze: (sql: string,projectId:number, schemaId?: number, executionTimeMs?: number) =>
+  analyze: (sql: string, projectId?: number, schemaId?: number, executionTimeMs?: number) =>
     fetchApi<AnalysisResult>("/queries/analyze", {
       method: "POST",
-      body: { sql,projectId, schemaId, executionTimeMs },
+      body: { sql, projectId, schemaId, executionTimeMs },
     }),
 
   get: (id: number) =>
@@ -174,25 +146,27 @@ export const aiApi = {
   nlToSql: (naturalLanguage: string, schemaId: number) =>
     fetchApi<NLToSQLResponse>("/ai/nl-to-sql", {
       method: "POST",
-      body: { naturalLanguage, schemaId },
+      body: { query: naturalLanguage, schemaId },
     }),
 
   explain: (sql: string) =>
-    fetchApi<ExplainResponse>("/ai/explain", {
+    fetchApi<ExplainResponse>(`/ai/explain?sql=${encodeURIComponent(sql)}`, {
       method: "POST",
-      body: { sql },
     }),
 
-  optimize: (sql: string, schemaId?: number, currentExecutionMs?: number) =>
-    fetchApi<OptimizeResponse>("/ai/optimize", {
+  optimize: (sql: string, schemaId?: number) => {
+    const searchParams = new URLSearchParams()
+    searchParams.set("sql", sql)
+    if (schemaId !== undefined) searchParams.set("schemaId", String(schemaId))
+    return fetchApi<OptimizeResponse>(`/ai/optimize?${searchParams.toString()}`, {
       method: "POST",
-      body: { sql, schemaId, currentExecutionMs },
-    }),
+    })
+  },
 
-  securityScan: (sql: string, context: string = "SQL") =>
+  securityScan: (code: string, context: string = "RAW_SQL") =>
     fetchApi<SecurityScanResponse>("/ai/security-scan", {
       method: "POST",
-      body: { sql, context },
+      body: { code, context },
     }),
 }
 
@@ -205,7 +179,8 @@ export const historyApi = {
     if (params?.projectId !== undefined) searchParams.set("projectId", String(params.projectId))
     if (params?.startDate) searchParams.set("startDate", params.startDate)
     if (params?.endDate) searchParams.set("endDate", params.endDate)
-    return fetchApi<HistoryPage>(`/history?${searchParams.toString()}`)
+    const queryString = searchParams.toString()
+    return fetchApi<HistoryPage>(queryString ? `/history?${queryString}` : "/history")
   },
 
   get: (id: number) =>
@@ -218,7 +193,7 @@ export const analyticsApi = {
     fetchApi<AnalyticsOverview>("/analytics/overview"),
 
   slowQueries: () =>
-    fetchApi<SlowQuery[]>("/analytics/slow-queries"),
+    fetchApi<HistoryPage>("/analytics/slow-queries"),
 }
 
 // Types
@@ -262,11 +237,14 @@ export interface ParseResult {
   queryType: string
   tables: string[]
   columns: string[]
-  joins: { type: string; table: string; condition: string }[]
-  whereConditions: string[]
+  joins: { type: string; table: string; alias?: string; condition: string }[]
+  whereConditions: { column: string; table?: string; operator: string; value: string; isParameterized: boolean }[]
   orderBy: string[]
   groupBy: string[]
-  subqueries: string[]
+  subqueryCount: number
+  hasDistinct: boolean
+  hasHaving: boolean
+  aggregateFunctions: string[]
 }
 
 export interface AnalysisResult {
@@ -289,18 +267,23 @@ export interface AnalysisResult {
 }
 
 export interface IndexSuggestion {
-  table: string
+  tableName: string
   columns: string[]
-  type: string
-  impact: "HIGH" | "MEDIUM" | "LOW"
+  indexName?: string
+  suggestionType: string
+  impactScore: "HIGH" | "MEDIUM" | "LOW"
   reasoning: string
+  createStatement?: string
 }
 
 export interface NLToSQLResponse {
   sql: string
   confidence: number
-  explanation: string
-  alternativeQueries: string[]
+  explanation?: string
+  alternativeQueries?: string[]
+  valid?: boolean
+  errorMessage?: string
+  dialect?: string
 }
 
 export interface ExplainResponse {
@@ -310,14 +293,16 @@ export interface ExplainResponse {
 }
 
 export interface OptimizeResponse {
-  suggestions: {
+  suggestions?: {
     type: string
+    priority?: string
     original?: string
     optimized?: string
     suggestion?: string
     explanation: string
     estimatedImprovement?: string
   }[]
+  overallAssessment?: string
 }
 
 export interface SecurityScanResponse {
@@ -329,7 +314,7 @@ export interface SecurityScanResponse {
 export interface SecurityFinding {
   type: string
   severity: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW"
-  line?: number
+  line?: string | number
   description: string
   recommendation: string
   secureExample?: string

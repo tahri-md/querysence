@@ -253,7 +253,7 @@ export default function AIAssistantPage() {
 
                     <div className="space-y-2">
                       <p className="text-sm font-medium">Explanation</p>
-                      <p className="text-sm text-muted-foreground">{nlResult.explanation}</p>
+                      <p className="text-sm text-muted-foreground">{nlResult.explanation || "No explanation provided."}</p>
                     </div>
 
                     {nlResult.alternativeQueries && nlResult.alternativeQueries.length > 0 && (
@@ -434,7 +434,7 @@ ORDER BY revenue DESC;"
                   </div>
                 ) : optimizeResult ? (
                   <div className="space-y-4">
-                    {optimizeResult.suggestions.map((suggestion, index) => (
+                    {(optimizeResult.suggestions ?? []).map((suggestion, index) => (
                       <div key={index} className="rounded-lg border p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <Badge variant="secondary">{suggestion.type}</Badge>
@@ -474,6 +474,11 @@ ORDER BY revenue DESC;"
                         <p className="text-sm text-muted-foreground">{suggestion.explanation}</p>
                       </div>
                     ))}
+                    {(optimizeResult.suggestions ?? []).length === 0 && optimizeResult.overallAssessment && (
+                      <div className="rounded-lg border p-4 text-sm text-muted-foreground">
+                        {optimizeResult.overallAssessment}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-16 text-center">

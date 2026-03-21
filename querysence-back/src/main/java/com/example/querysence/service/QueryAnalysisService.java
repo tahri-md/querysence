@@ -37,7 +37,7 @@ public class QueryAnalysisService {
 
     @Transactional
     public QueryAnalysisResponse analyze(QueryAnalysisRequest request, String username) {
-        User user = userRepository.findByFullName(username)
+        User user = userRepository.findByEmail(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         // Parse the query

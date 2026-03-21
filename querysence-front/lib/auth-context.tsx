@@ -4,10 +4,10 @@ import { createContext, useContext, useEffect, useState, useCallback, type React
 import { authApi } from "./api"
 
 interface User {
-  id: number
+  id?: number
   email: string
   fullName: string
-  role: string
+  role?: string
 }
 
 interface AuthContextType {
@@ -37,7 +37,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(userData)
     } catch {
       localStorage.removeItem("accessToken")
-      localStorage.removeItem("refreshToken")
       setUser(null)
     } finally {
       setIsLoading(false)
@@ -48,10 +47,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     checkAuth()
   }, [checkAuth])
 
-  const login = async (fullName: string, password: string) => {
-    const response = await authApi.login(fullName, password)
+  const login = async (email: string, password: string) => {
+    const response = await authApi.login(email, password)
     localStorage.setItem("accessToken", response.accessToken)
-    localStorage.setItem("refreshToken", response.refreshToken)
+    setUser(response.user)
     await checkAuth()
   }
 
@@ -66,7 +65,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Ignore logout errors
     } finally {
       localStorage.removeItem("accessToken")
-      localStorage.removeItem("refreshToken")
       setUser(null)
     }
   }

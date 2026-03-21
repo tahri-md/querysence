@@ -14,5 +14,6 @@ import lombok.Setter;
 public class UserDto {
     private String fullName;
     private String email;
+    private String role;
     private Boolean is_active;
 }

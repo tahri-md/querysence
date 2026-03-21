@@ -39,7 +39,8 @@ export default function SecurityScannerPage() {
     setResult(null)
 
     try {
-      const scanResult = await aiApi.securityScan(code, language)
+      const scanContext = language === "SQL" ? "RAW_SQL" : language
+      const scanResult = await aiApi.securityScan(code, scanContext)
       setResult(scanResult)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Security scan failed")

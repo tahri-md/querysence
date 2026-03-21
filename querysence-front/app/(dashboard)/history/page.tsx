@@ -47,7 +47,7 @@ export default function HistoryPage() {
   const [pageSize] = useState(10)
 
   const [projects, setProjects] = useState<{ id: number; name: string }[]>([])
-  const [selectedProject, setSelectedProject] = useState<string>("")
+  const [selectedProject, setSelectedProject] = useState<string>("all")
   const [startDate, setStartDate] = useState<Date | undefined>()
   const [endDate, setEndDate] = useState<Date | undefined>()
 
@@ -73,7 +73,7 @@ export default function HistoryPage() {
       const data = await historyApi.list({
         page: currentPage,
         size: pageSize,
-        projectId: selectedProject ? parseInt(selectedProject) : undefined,
+        projectId: selectedProject && selectedProject !== "all" ? parseInt(selectedProject) : undefined,
         startDate: startDate ? format(startDate, "yyyy-MM-dd") : undefined,
         endDate: endDate ? format(endDate, "yyyy-MM-dd") : undefined,
       })
@@ -144,7 +144,7 @@ export default function HistoryPage() {
   }
 
   const clearFilters = () => {
-    setSelectedProject("")
+    setSelectedProject("all")
     setStartDate(undefined)
     setEndDate(undefined)
     setCurrentPage(0)
@@ -390,7 +390,7 @@ export default function HistoryPage() {
                         <div className="space-y-2">
                           {entryDetails.indexSuggestions.map((suggestion, i) => (
                             <div key={i} className="rounded border p-3 text-sm">
-                              <p className="font-mono">{suggestion.table} ({suggestion.columns.join(", ")})</p>
+                              <p className="font-mono">{suggestion.tableName} ({suggestion.columns.join(", ")})</p>
                               <p className="text-muted-foreground text-xs mt-1">{suggestion.reasoning}</p>
                             </div>
                           ))}
