@@ -17,6 +17,7 @@ public class ProjectInviteDto {
     private String inviteCode;
     private String email;
     private ProjectRole role;
+    private Long projectId;
     private String createdByEmail;
     private LocalDateTime expiresAt;
     private LocalDateTime createdAt;
