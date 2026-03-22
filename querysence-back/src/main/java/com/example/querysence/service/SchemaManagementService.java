@@ -65,6 +65,14 @@ public class SchemaManagementService {
 
         project = projectRepository.save(project);
 
+        // Add creator as ProjectMember with OWNER role
+        ProjectMember creatorMember = ProjectMember.builder()
+            .project(project)
+            .user(user)
+            .role(com.example.querysence.model.ProjectRole.OWNER)
+            .build();
+        projectMemberRepository.save(creatorMember);
+
         return mapToResponse(project);
     }
 

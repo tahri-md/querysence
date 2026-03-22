@@ -250,4 +250,22 @@ public class ProjectCollaborationService {
                 .build())
             .collect(Collectors.toList());
     }
+
+    // Get pending invites for a user by email
+    public List<ProjectInviteDto> getPendingInvitesByEmail(String email) {
+        List<ProjectInvite> invites = projectInviteRepository.findByEmailAndIsUsedFalse(email);
+        return invites.stream()
+            .map(invite -> ProjectInviteDto.builder()
+                .id(invite.getId())
+                .inviteCode(invite.getInviteCode())
+                .email(invite.getEmail())
+                .role(invite.getRole())
+                .projectId(invite.getProject().getId())
+                .createdByEmail(invite.getCreatedBy().getEmail())
+                .expiresAt(invite.getExpiresAt())
+                .createdAt(invite.getCreatedAt())
+                .isUsed(invite.getIsUsed())
+                .build())
+            .collect(Collectors.toList());
+    }
 }

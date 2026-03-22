@@ -21,8 +21,10 @@ import com.example.querysence.model.dto.UpdateEmailRequest;
 import com.example.querysence.model.dto.UpdateProfileRequest;
 import com.example.querysence.model.dto.UserDto;
 import com.example.querysence.model.dto.UserRegister;
+import com.example.querysence.model.dto.ProjectInviteDto;
 import com.example.querysence.service.JwtService;
 import com.example.querysence.service.UserService;
+import com.example.querysence.service.ProjectCollaborationService;
 
 @RestController
 @RequestMapping("/auth")
@@ -33,6 +35,9 @@ public class UserController {
 
     @Autowired
     private JwtService jwtService;
+
+    @Autowired
+    private ProjectCollaborationService collaborationService;
 
     @PostMapping("/register")
     public ResponseEntity<UserDto> register(@RequestBody UserRegister registredUser) {
@@ -140,5 +145,11 @@ public class UserController {
         } catch (Exception e) {
             return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
         }
+    }
+
+    @GetMapping("/me/invites")
+    public ResponseEntity<java.util.List<ProjectInviteDto>> getPendingInvites(Authentication authentication) {
+        String email = authentication.getName();
+        return ResponseEntity.ok(collaborationService.getPendingInvitesByEmail(email));
     }
 }
