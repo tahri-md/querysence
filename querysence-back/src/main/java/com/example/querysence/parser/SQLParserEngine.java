@@ -1,7 +1,7 @@
 package com.example.querysence.parser;
 
-
 import com.example.querysence.exception.*;
+
 import lombok.extern.slf4j.Slf4j;
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.*;
@@ -71,7 +71,7 @@ public class SQLParserEngine {
         // Parse SELECT columns
         List<String> columns = new ArrayList<>();
         List<String> aggregates = new ArrayList<>();
-        
+
         for (SelectItem<?> item : plainSelect.getSelectItems()) {
             if (item.getExpression() instanceof AllColumns) {
                 columns.add("*");
@@ -111,22 +111,25 @@ public class SQLParserEngine {
         builder.joins(joins);
 
         // Parse WHERE clause
-        List<ParsedQuery.WhereCondition> conditions = new ArrayList<>();
         List<ParsedQuery> subqueries = new ArrayList<>();
+        ParsedQuery.Condition whereCondition = null;
         if (plainSelect.getWhere() != null) {
-            parseWhereExpression(plainSelect.getWhere(), conditions, subqueries, depth);
+            whereCondition = parseWhereExpression(plainSelect.getWhere(), subqueries, depth);
         }
-        builder.whereConditions(conditions);
+        if (whereCondition != null) {
+            builder.whereConditions(flattenConditions(whereCondition));
+        }
         builder.subqueries(subqueries);
 
         // Parse GROUP BY
         if (plainSelect.getGroupBy() != null) {
             List<String> groupByCols = new ArrayList<>();
-            plainSelect.getGroupBy().getGroupByExpressionList().forEach(expr -> {
+            for (Object obj : plainSelect.getGroupBy().getGroupByExpressionList()) {
+                Expression expr = (Expression) obj;
                 if (expr instanceof Column col) {
                     groupByCols.add(col.getColumnName());
                 }
-            });
+            }
             builder.groupByColumns(groupByCols);
         }
 
@@ -148,21 +151,31 @@ public class SQLParserEngine {
     private void extractTables(FromItem fromItem, List<String> tables, ParsedQuery.ParsedQueryBuilder builder) {
         if (fromItem instanceof Table table) {
             tables.add(table.getName());
-        } else if (fromItem instanceof Select subSelect) {
-            ParsedQuery subquery = parse(subSelect.toString());
-            List<ParsedQuery> subqueries = builder.build().getSubqueries();
-            if (subqueries == null) subqueries = new ArrayList<>();
-            subqueries.add(subquery);
-            builder.subqueries(subqueries);
+        } else {
+            // handle subselects or other from-item types by parsing their SQL
+            try {
+                ParsedQuery subquery = parse(fromItem.toString());
+                List<ParsedQuery> subqueries = builder.build().getSubqueries();
+                if (subqueries == null)
+                    subqueries = new ArrayList<>();
+                subqueries.add(subquery);
+                builder.subqueries(subqueries);
+            } catch (Exception e) {
+                log.debug("Failed to parse from-item as subquery: {}", e.getMessage());
+            }
         }
     }
 
     private ParsedQuery.JoinInfo parseJoin(Join join) {
         String joinType = "INNER";
-        if (join.isLeft()) joinType = "LEFT";
-        else if (join.isRight()) joinType = "RIGHT";
-        else if (join.isFull()) joinType = "FULL";
-        else if (join.isCross()) joinType = "CROSS";
+        if (join.isLeft())
+            joinType = "LEFT";
+        else if (join.isRight())
+            joinType = "RIGHT";
+        else if (join.isFull())
+            joinType = "FULL";
+        else if (join.isCross())
+            joinType = "CROSS";
 
         String tableName = "";
         String alias = "";
@@ -188,87 +201,193 @@ public class SQLParserEngine {
                 .build();
     }
 
-    private void parseWhereExpression(Expression expression, 
-                                       List<ParsedQuery.WhereCondition> conditions,
-                                       List<ParsedQuery> subqueries,
-                                       int depth) {
-        if (expression instanceof AndExpression and) {
-            parseWhereExpression(and.getLeftExpression(), conditions, subqueries, depth);
-            parseWhereExpression(and.getRightExpression(), conditions, subqueries, depth);
-        } else if (expression instanceof OrExpression or) {
-            parseWhereExpression(or.getLeftExpression(), conditions, subqueries, depth);
-            parseWhereExpression(or.getRightExpression(), conditions, subqueries, depth);
-        } else if (expression instanceof ComparisonOperator comp) {
-            ParsedQuery.WhereCondition condition = parseComparisonOperator(comp);
-            if (condition != null) conditions.add(condition);
-            
-            // Check for subqueries
-            if (comp.getRightExpression() instanceof Select subSelect) {
-                ParsedQuery subquery = parse(subSelect.toString());
-                subquery.setSubqueryDepth(depth + 1);
-                subqueries.add(subquery);
+    private ParsedQuery.Condition parseWhereExpression(Expression expression,
+            List<ParsedQuery> subqueries,
+            int depth) {
+        if (expression == null) {
+            return null;
+        }
+
+        // Unwrap parentheses (Parenthesis is deprecated in newer versions)
+        if (expression.getClass().getSimpleName().equals("Parenthesis")) {
+            try {
+                Expression innerExpr = (Expression) expression.getClass().getMethod("getExpression").invoke(expression);
+                return parseWhereExpression(innerExpr, subqueries, depth);
+            } catch (Exception e) {
+                log.warn("Failed to extract inner expression from parenthesis: {}", e.getMessage());
             }
+        }
+
+        if (expression instanceof AndExpression and) {
+            ParsedQuery.Condition left = parseWhereExpression(and.getLeftExpression(), subqueries, depth);
+            ParsedQuery.Condition right = parseWhereExpression(and.getRightExpression(), subqueries, depth);
+            return new ParsedQuery.AndCondition(left, right);
+
+        } else if (expression instanceof OrExpression or) {
+            ParsedQuery.Condition left = parseWhereExpression(or.getLeftExpression(), subqueries, depth);
+            ParsedQuery.Condition right = parseWhereExpression(or.getRightExpression(), subqueries, depth);
+            return new ParsedQuery.OrCondition(left, right);
+
+        } else if (expression instanceof ComparisonOperator comp) {
+            if (comp.getLeftExpression() instanceof Column col) {
+                String operator = comp.getStringExpression();
+                boolean isParameterized = comp.getRightExpression() instanceof JdbcParameter;
+                String value = comp.getRightExpression().toString();
+
+                // Check for subqueries in right side
+                if (comp.getRightExpression() instanceof Select subSelect) {
+                    ParsedQuery subquery = parse(subSelect.toString());
+                    subquery.setSubqueryDepth(depth + 1);
+                    subqueries.add(subquery);
+                }
+
+                return new ParsedQuery.ComparisonCondition(
+                        col.getColumnName(),
+                        col.getTable() != null ? col.getTable().getName() : "",
+                        operator,
+                        value,
+                        isParameterized
+                );
+            }
+
         } else if (expression instanceof InExpression in) {
             if (in.getLeftExpression() instanceof Column col) {
-                conditions.add(ParsedQuery.WhereCondition.builder()
-                        .column(col.getColumnName())
-                        .table(col.getTable() != null ? col.getTable().getName() : "")
-                        .operator("IN")
-                        .build());
+                List<String> values = new ArrayList<>();
+                boolean isParameterized = false;
+                ParsedQuery subqueryRef = null;
+
+                // Try to read items list via reflection (works across different jsqlparser versions)
+                try {
+                    java.lang.reflect.Method m = in.getClass().getMethod("getRightItemsList");
+                    Object itemsList = m.invoke(in);
+                    if (itemsList != null) {
+                        try {
+                            java.lang.reflect.Method ge = itemsList.getClass().getMethod("getExpressions");
+                            Object rawList = ge.invoke(itemsList);
+                            if (rawList instanceof java.util.List<?> list) {
+                                for (Object o : list) {
+                                    if (o instanceof Expression e) {
+                                        if (e instanceof JdbcParameter) {
+                                            isParameterized = true;
+                                        }
+                                        values.add(e.toString());
+                                    } else if (o != null) {
+                                        values.add(o.toString());
+                                    }
+                                }
+                            }
+                        } catch (NoSuchMethodException ignored) {
+                        }
+                    }
+                } catch (NoSuchMethodException ignored) {
+                } catch (Exception e) {
+                    log.debug("IN items reflection failed: {}", e.getMessage());
+                }
+
+                // Fallback to right expression (could be Select or simple expressions)
+                if (values.isEmpty()) {
+                    Expression re = in.getRightExpression();
+                    if (re instanceof Select subSelect) {
+                        subqueryRef = parse(subSelect.toString());
+                        subqueryRef.setSubqueryDepth(depth + 1);
+                        subqueries.add(subqueryRef);
+                    } else if (re != null) {
+                        if (re instanceof JdbcParameter) {
+                            isParameterized = true;
+                        }
+                        values.add(re.toString());
+                    }
+                }
+
+                return new ParsedQuery.InCondition(
+                        col.getColumnName(),
+                        col.getTable() != null ? col.getTable().getName() : "",
+                        values,
+                        isParameterized,
+                        subqueryRef
+                );
+            } else {
+                // if left is not a column, still check for subselect on right
+                if (in.getRightExpression() instanceof Select subSelect) {
+                    ParsedQuery subquery = parse(subSelect.toString());
+                    subquery.setSubqueryDepth(depth + 1);
+                    subqueries.add(subquery);
+                }
+                return null;
             }
-            if (in.getRightExpression() instanceof Select subSelect) {
-                ParsedQuery subquery = parse(subSelect.toString());
-                subquery.setSubqueryDepth(depth + 1);
-                subqueries.add(subquery);
-            }
+
         } else if (expression instanceof Between between) {
             if (between.getLeftExpression() instanceof Column col) {
-                conditions.add(ParsedQuery.WhereCondition.builder()
-                        .column(col.getColumnName())
-                        .table(col.getTable() != null ? col.getTable().getName() : "")
-                        .operator("BETWEEN")
-                        .build());
+                Expression start = between.getBetweenExpressionStart();
+                Expression end = between.getBetweenExpressionEnd();
+                String startVal = start != null ? start.toString() : null;
+                String endVal = end != null ? end.toString() : null;
+                boolean isParameterized = (start instanceof JdbcParameter) || (end instanceof JdbcParameter);
+
+                return new ParsedQuery.BetweenCondition(
+                        col.getColumnName(),
+                        col.getTable() != null ? col.getTable().getName() : "",
+                        startVal,
+                        endVal,
+                        isParameterized
+                );
             }
+
         } else if (expression instanceof LikeExpression like) {
             if (like.getLeftExpression() instanceof Column col) {
-                conditions.add(ParsedQuery.WhereCondition.builder()
-                        .column(col.getColumnName())
-                        .table(col.getTable() != null ? col.getTable().getName() : "")
-                        .operator("LIKE")
-                        .build());
+                Expression right = like.getRightExpression();
+                String pattern = right != null ? right.toString() : null;
+                boolean isParameterized = right instanceof JdbcParameter;
+
+                return new ParsedQuery.LikeCondition(
+                        col.getColumnName(),
+                        col.getTable() != null ? col.getTable().getName() : "",
+                        pattern,
+                        isParameterized
+                );
             }
+
         } else if (expression instanceof IsNullExpression isNull) {
             if (isNull.getLeftExpression() instanceof Column col) {
-                conditions.add(ParsedQuery.WhereCondition.builder()
-                        .column(col.getColumnName())
-                        .table(col.getTable() != null ? col.getTable().getName() : "")
-                        .operator(isNull.isNot() ? "IS NOT NULL" : "IS NULL")
-                        .build());
+                return new ParsedQuery.IsNullCondition(
+                        col.getColumnName(),
+                        col.getTable() != null ? col.getTable().getName() : "",
+                        isNull.isNot()
+                );
             }
+
         } else if (expression instanceof ExistsExpression exists) {
             if (exists.getRightExpression() instanceof Select subSelect) {
                 ParsedQuery subquery = parse(subSelect.toString());
                 subquery.setSubqueryDepth(depth + 1);
                 subqueries.add(subquery);
+                return new ParsedQuery.ExistsCondition(subquery);
             }
         }
+
+        return null;
     }
 
-    private ParsedQuery.WhereCondition parseComparisonOperator(ComparisonOperator comp) {
-        if (comp.getLeftExpression() instanceof Column col) {
-            String operator = comp.getStringExpression();
-            boolean isParameterized = comp.getRightExpression() instanceof JdbcParameter;
-            String value = comp.getRightExpression().toString();
+    private List<ParsedQuery.WhereCondition> flattenConditions(ParsedQuery.Condition condition) {
+        List<ParsedQuery.WhereCondition> result = new ArrayList<>();
+        flattenConditionsRecursive(condition, result);
+        return result;
+    }
 
-            return ParsedQuery.WhereCondition.builder()
-                    .column(col.getColumnName())
-                    .table(col.getTable() != null ? col.getTable().getName() : "")
-                    .operator(operator)
-                    .value(value)
-                    .isParameterized(isParameterized)
-                    .build();
+    private void flattenConditionsRecursive(ParsedQuery.Condition condition, List<ParsedQuery.WhereCondition> result) {
+        if (condition == null) {
+            return;
         }
-        return null;
+
+        if (condition instanceof ParsedQuery.WhereCondition whereCondition) {
+            result.add(whereCondition);
+        } else if (condition instanceof ParsedQuery.AndCondition andCondition) {
+            flattenConditionsRecursive(andCondition.left, result);
+            flattenConditionsRecursive(andCondition.right, result);
+        } else if (condition instanceof ParsedQuery.OrCondition orCondition) {
+            flattenConditionsRecursive(orCondition.left, result);
+            flattenConditionsRecursive(orCondition.right, result);
+        }
     }
 
     private void extractColumnsFromExpression(Expression expr, List<String> columns) {
@@ -309,11 +428,15 @@ public class SQLParserEngine {
         builder.columns(columns);
 
         // Parse WHERE clause
-        List<ParsedQuery.WhereCondition> conditions = new ArrayList<>();
+        List<ParsedQuery> subqueries = new ArrayList<>();
+        ParsedQuery.Condition whereCondition = null;
         if (update.getWhere() != null) {
-            parseWhereExpression(update.getWhere(), conditions, new ArrayList<>(), 0);
+            whereCondition = parseWhereExpression(update.getWhere(), subqueries, 0);
         }
-        builder.whereConditions(conditions);
+        if (whereCondition != null) {
+            builder.whereConditions(flattenConditions(whereCondition));
+        }
+        builder.subqueries(subqueries);
     }
 
     private void parseDelete(Delete delete, ParsedQuery.ParsedQueryBuilder builder) {
@@ -322,10 +445,14 @@ public class SQLParserEngine {
         builder.tables(tables);
 
         // Parse WHERE clause
-        List<ParsedQuery.WhereCondition> conditions = new ArrayList<>();
+        List<ParsedQuery> subqueries = new ArrayList<>();
+        ParsedQuery.Condition whereCondition = null;
         if (delete.getWhere() != null) {
-            parseWhereExpression(delete.getWhere(), conditions, new ArrayList<>(), 0);
+            whereCondition = parseWhereExpression(delete.getWhere(), subqueries, 0);
         }
-        builder.whereConditions(conditions);
+        if (whereCondition != null) {
+            builder.whereConditions(flattenConditions(whereCondition));
+        }
+        builder.subqueries(subqueries);
     }
 }
