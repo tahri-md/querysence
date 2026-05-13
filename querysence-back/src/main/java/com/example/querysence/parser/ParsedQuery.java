@@ -57,6 +57,16 @@ public class ParsedQuery {
         private String alias;
         private String condition;
         private List<String> joinColumns;
+        private List<JoinKey> joinKeys;
+        private ParsedQuery subquery;
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class JoinKey {
+        private String left;
+        private String right;
     }
     
     @Data
