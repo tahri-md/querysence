@@ -179,17 +179,41 @@ public class SQLParserEngine {
 
         String tableName = "";
         String alias = "";
-        if (join.getFromItem() instanceof Table table) {
+        ParsedQuery subquery = null;
+        FromItem fromItem = join.getFromItem();
+        if (fromItem instanceof Table table) {
             tableName = table.getName();
             alias = table.getAlias() != null ? table.getAlias().getName() : "";
+        } else if (fromItem.getClass().getSimpleName().equals("SubSelect")) {
+            alias = fromItem.getAlias() != null ? fromItem.getAlias().getName() : "";
+            try {
+                subquery = parse(fromItem.toString());
+                subquery.setSubqueryDepth(0);
+            } catch (Exception e) {
+                log.debug("Failed to parse join subselect: {}", e.getMessage());
+            }
+            tableName = alias != null && !alias.isEmpty() ? alias : "";
+        } else {
+            // fallback: attempt to parse whatever the fromItem string is
+            try {
+                ParsedQuery pq = parse(fromItem.toString());
+                if (pq != null) {
+                    subquery = pq;
+                    tableName = fromItem.getAlias() != null ? fromItem.getAlias().getName() : "";
+                }
+            } catch (Exception e) {
+                // ignore
+            }
         }
 
         List<String> joinColumns = new ArrayList<>();
         String condition = "";
+        List<ParsedQuery.JoinKey> joinKeys = new ArrayList<>();
         if (join.getOnExpressions() != null && !join.getOnExpressions().isEmpty()) {
             Expression onExpr = join.getOnExpressions().iterator().next();
             condition = onExpr.toString();
             extractColumnsFromExpression(onExpr, joinColumns);
+            extractJoinKeyPairs(onExpr, joinKeys);
         }
 
         return ParsedQuery.JoinInfo.builder()
@@ -198,7 +222,48 @@ public class SQLParserEngine {
                 .alias(alias)
                 .condition(condition)
                 .joinColumns(joinColumns)
+                .joinKeys(joinKeys)
+                .subquery(subquery)
                 .build();
+    }
+
+    private void extractJoinKeyPairs(Expression expr, List<ParsedQuery.JoinKey> keys) {
+        if (expr == null) return;
+
+        // Unwrap parentheses
+        if (expr.getClass().getSimpleName().equals("Parenthesis")) {
+            try {
+                Expression inner = (Expression) expr.getClass().getMethod("getExpression").invoke(expr);
+                extractJoinKeyPairs(inner, keys);
+                return;
+            } catch (Exception ignored) {
+            }
+        }
+
+        if (expr instanceof EqualsTo eq) {
+            Expression l = eq.getLeftExpression();
+            Expression r = eq.getRightExpression();
+            if (l instanceof Column lc && r instanceof Column rc) {
+                String left = lc.getTable() != null && lc.getTable().getName() != null && !lc.getTable().getName().isEmpty()
+                        ? lc.getTable().getName() + "." + lc.getColumnName()
+                        : lc.getColumnName();
+                String right = rc.getTable() != null && rc.getTable().getName() != null && !rc.getTable().getName().isEmpty()
+                        ? rc.getTable().getName() + "." + rc.getColumnName()
+                        : rc.getColumnName();
+                keys.add(new ParsedQuery.JoinKey(left, right));
+            }
+        } else if (expr instanceof AndExpression and) {
+            extractJoinKeyPairs(and.getLeftExpression(), keys);
+            extractJoinKeyPairs(and.getRightExpression(), keys);
+        } else if (expr instanceof OrExpression or) {
+            extractJoinKeyPairs(or.getLeftExpression(), keys);
+            extractJoinKeyPairs(or.getRightExpression(), keys);
+        } else if (expr instanceof BinaryExpression be) {
+            // try to inspect equals-like binary expressions
+            if (be instanceof EqualsTo) {
+                extractJoinKeyPairs((EqualsTo) be, keys);
+            }
+        }
     }
 
     private ParsedQuery.Condition parseWhereExpression(Expression expression,
