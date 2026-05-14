@@ -91,25 +91,39 @@ public class SQLParserEngine {
 
         // Parse SELECT columns
         List<String> columns = new ArrayList<>();
+        List<ParsedQuery.SelectExpression> selectExpressions = new ArrayList<>();
         List<String> aggregates = new ArrayList<>();
         List<ParsedQuery.FunctionInfo> functions = new ArrayList<>();
 
         for (SelectItem<?> item : plainSelect.getSelectItems()) {
-            if (item.getExpression() instanceof AllColumns) {
+            Expression expression = item.getExpression();
+            String alias = item.getAlias() != null ? item.getAlias().getName() : null;
+
+            if (expression instanceof AllColumns) {
                 columns.add("*");
-            } else if (item.getExpression() instanceof AllTableColumns atc) {
-                columns.add(atc.getTable().getName() + ".*");
-            } else if (item.getExpression() instanceof Column col) {
-                columns.add(col.getColumnName());
-            } else if (item.getExpression() instanceof Function func) {
-                collectFunctionUsage(func, functions, aggregates);
-                columns.add(func.toString());
+                selectExpressions.add(ParsedQuery.SelectExpression.builder()
+                        .type(ParsedQuery.SelectExpressionType.COLUMN)
+                        .text("*")
+                        .alias(alias)
+                        .value("*")
+                        .build());
+            } else if (expression instanceof AllTableColumns atc) {
+                String tableText = atc.getTable().getName() + ".*";
+                columns.add(tableText);
+                selectExpressions.add(ParsedQuery.SelectExpression.builder()
+                        .type(ParsedQuery.SelectExpressionType.COLUMN)
+                        .text(tableText)
+                        .alias(alias)
+                        .value(tableText)
+                        .build());
             } else {
-                collectFunctionsFromExpression(item.getExpression(), functions, aggregates);
-                columns.add(item.toString());
+                ParsedQuery.SelectExpression selectExpression = parseSelectExpression(expression, alias, functions, aggregates);
+                selectExpressions.add(selectExpression);
+                columns.add(expression != null ? expression.toString() : item.toString());
             }
         }
         builder.columns(columns);
+        builder.selectExpressions(selectExpressions);
         builder.aggregateFunctions(aggregates);
         builder.functions(functions);
         builder.hasDistinct(plainSelect.getDistinct() != null);
@@ -180,6 +194,208 @@ public class SQLParserEngine {
 
         builder.aggregateFunctions(aggregates);
         builder.functions(functions);
+    }
+
+    private ParsedQuery.SelectExpression parseSelectExpression(Expression expression,
+                                                              String alias,
+                                                              List<ParsedQuery.FunctionInfo> functions,
+                                                              List<String> aggregateNames) {
+        if (expression == null) {
+            return ParsedQuery.SelectExpression.builder()
+                    .type(ParsedQuery.SelectExpressionType.UNKNOWN)
+                    .alias(alias)
+                    .build();
+        }
+
+        if (expression instanceof Function function) {
+            collectFunctionUsage(function, functions, aggregateNames);
+            List<ParsedQuery.SelectExpression> children = parseExpressionChildren(expression, functions, aggregateNames);
+            return ParsedQuery.SelectExpression.builder()
+                    .type(ParsedQuery.SelectExpressionType.FUNCTION)
+                    .text(expression.toString())
+                    .alias(alias)
+                    .value(function.getName())
+                    .children(children)
+                    .build();
+        }
+
+        if (expression instanceof CaseExpression caseExpression) {
+            List<ParsedQuery.SelectExpression> children = new ArrayList<>();
+            if (caseExpression.getSwitchExpression() != null) {
+                children.add(parseSelectExpression(caseExpression.getSwitchExpression(), null, functions, aggregateNames));
+            }
+            if (caseExpression.getWhenClauses() != null) {
+                caseExpression.getWhenClauses().forEach(whenClause -> {
+                    children.add(parseSelectExpression(whenClause.getWhenExpression(), null, functions, aggregateNames));
+                    children.add(parseSelectExpression(whenClause.getThenExpression(), null, functions, aggregateNames));
+                });
+            }
+            children.add(parseSelectExpression(caseExpression.getElseExpression(), null, functions, aggregateNames));
+            return ParsedQuery.SelectExpression.builder()
+                    .type(ParsedQuery.SelectExpressionType.CASE)
+                    .text(expression.toString())
+                    .alias(alias)
+                    .children(children)
+                    .build();
+        }
+
+        if (expression instanceof Column col) {
+            return ParsedQuery.SelectExpression.builder()
+                    .type(ParsedQuery.SelectExpressionType.COLUMN)
+                    .text(expression.toString())
+                    .alias(alias)
+                    .value(resolveQualifiedColumnName(col))
+                    .build();
+        }
+
+        if (isLiteralExpression(expression)) {
+            return ParsedQuery.SelectExpression.builder()
+                    .type(ParsedQuery.SelectExpressionType.LITERAL)
+                    .text(expression.toString())
+                    .alias(alias)
+                    .value(expression.toString())
+                    .build();
+        }
+
+        if (isArithmeticExpression(expression)) {
+            return ParsedQuery.SelectExpression.builder()
+                    .type(ParsedQuery.SelectExpressionType.ARITHMETIC)
+                    .text(expression.toString())
+                    .alias(alias)
+                    .operator(resolveBinaryOperator(expression))
+                    .children(parseExpressionChildren(expression, functions, aggregateNames))
+                    .build();
+        }
+
+        if (isParenthesizedExpression(expression)) {
+            Expression inner = extractInnerExpression(expression);
+            return ParsedQuery.SelectExpression.builder()
+                    .type(ParsedQuery.SelectExpressionType.PARENTHESIZED)
+                    .text(expression.toString())
+                    .alias(alias)
+                    .children(inner == null ? List.of() : List.of(parseSelectExpression(inner, null, functions, aggregateNames)))
+                    .build();
+        }
+
+        if (isSelectSubqueryExpression(expression)) {
+            return ParsedQuery.SelectExpression.builder()
+                    .type(ParsedQuery.SelectExpressionType.SUBQUERY)
+                    .text(expression.toString())
+                    .alias(alias)
+                    .build();
+        }
+
+        return ParsedQuery.SelectExpression.builder()
+                .type(ParsedQuery.SelectExpressionType.UNKNOWN)
+                .text(expression.toString())
+                .alias(alias)
+                .build();
+    }
+
+    private List<ParsedQuery.SelectExpression> parseExpressionChildren(Expression expression,
+                                                                      List<ParsedQuery.FunctionInfo> functions,
+                                                                      List<String> aggregateNames) {
+        List<ParsedQuery.SelectExpression> children = new ArrayList<>();
+        if (expression == null) {
+            return children;
+        }
+
+        if (expression instanceof BinaryExpression binaryExpression) {
+            children.add(parseSelectExpression(binaryExpression.getLeftExpression(), null, functions, aggregateNames));
+            children.add(parseSelectExpression(binaryExpression.getRightExpression(), null, functions, aggregateNames));
+            return children;
+        }
+
+        try {
+            java.lang.reflect.Method method = expression.getClass().getMethod("getExpressions");
+            Object listObject = method.invoke(expression);
+            if (listObject instanceof List<?> list) {
+                for (Object item : list) {
+                    if (item instanceof Expression childExpression) {
+                        children.add(parseSelectExpression(childExpression, null, functions, aggregateNames));
+                    }
+                }
+            }
+        } catch (NoSuchMethodException ignored) {
+        } catch (Exception e) {
+            log.debug("Failed to inspect expression children: {}", e.getMessage());
+        }
+
+        return children;
+    }
+
+    private boolean isLiteralExpression(Expression expression) {
+        String simpleName = expression.getClass().getSimpleName();
+        return simpleName.endsWith("Value")
+                || expression instanceof JdbcParameter
+                || simpleName.equalsIgnoreCase("NullValue")
+                || simpleName.equalsIgnoreCase("BooleanValue");
+    }
+
+    private boolean isArithmeticExpression(Expression expression) {
+        if (expression == null) {
+            return false;
+        }
+        String simpleName = expression.getClass().getSimpleName().toLowerCase(Locale.ROOT);
+        return simpleName.contains("add")
+                || simpleName.contains("subtract")
+                || simpleName.contains("multiply")
+                || simpleName.contains("divide")
+                || simpleName.contains("mod")
+                || simpleName.contains("concat")
+                || simpleName.contains("arithmetic");
+    }
+
+    private boolean isParenthesizedExpression(Expression expression) {
+        return expression != null && expression.getClass().getSimpleName().equals("Parenthesis");
+    }
+
+    private boolean isSelectSubqueryExpression(Expression expression) {
+        if (expression == null) {
+            return false;
+        }
+
+        String simpleName = expression.getClass().getSimpleName().toLowerCase(Locale.ROOT);
+        if (simpleName.contains("select") || simpleName.contains("subselect")) {
+            return true;
+        }
+
+        String text = expression.toString().trim().toLowerCase(Locale.ROOT);
+        return text.startsWith("select") || (text.startsWith("(") && text.contains("select"));
+    }
+
+    private Expression extractInnerExpression(Expression expression) {
+        try {
+            java.lang.reflect.Method method = expression.getClass().getMethod("getExpression");
+            Object value = method.invoke(expression);
+            if (value instanceof Expression innerExpression) {
+                return innerExpression;
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    private String resolveBinaryOperator(Expression expression) {
+        try {
+            java.lang.reflect.Method method = expression.getClass().getMethod("getStringExpression");
+            Object value = method.invoke(expression);
+            if (value != null) {
+                return value.toString();
+            }
+        } catch (Exception ignored) {
+        }
+        return expression.getClass().getSimpleName();
+    }
+
+    private String resolveQualifiedColumnName(Column column) {
+        if (column == null) {
+            return null;
+        }
+        if (column.getTable() != null && column.getTable().getName() != null && !column.getTable().getName().isEmpty()) {
+            return column.getTable().getName() + "." + column.getColumnName();
+        }
+        return column.getColumnName();
     }
 
     private void collectFunctionsFromExpression(Expression expression,
