@@ -48,6 +48,9 @@ public class ParsedQuery {
     private List<FunctionInfo> functions = new ArrayList<>();
 
     @Builder.Default
+    private List<SelectExpression> selectExpressions = new ArrayList<>();
+
+    @Builder.Default
     private Map<String, String> aliasMap = new java.util.HashMap<>();
     
     private boolean hasDistinct;
@@ -74,6 +77,30 @@ public class ParsedQuery {
     public static class JoinKey {
         private String left;
         private String right;
+    }
+
+    public enum SelectExpressionType {
+        COLUMN,
+        LITERAL,
+        ARITHMETIC,
+        CASE,
+        FUNCTION,
+        PARENTHESIZED,
+        SUBQUERY,
+        UNKNOWN
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SelectExpression {
+        private SelectExpressionType type;
+        private String text;
+        private String alias;
+        private String operator;
+        private String value;
+        private List<SelectExpression> children;
     }
 
     public enum FunctionCategory {
