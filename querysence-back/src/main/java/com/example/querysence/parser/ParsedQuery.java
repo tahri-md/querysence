@@ -42,6 +42,9 @@ public class ParsedQuery {
     
     @Builder.Default
     private List<String> aggregateFunctions = new ArrayList<>();
+
+    @Builder.Default
+    private java.util.Map<String, String> aliasMap = new java.util.HashMap<>();
     
     private boolean hasDistinct;
     private boolean hasHaving;

@@ -92,16 +92,18 @@ public class SQLParserEngine {
 
         // Parse FROM clause
         List<String> tables = new ArrayList<>();
+        java.util.Map<String,String> aliasMap = new java.util.HashMap<>();
         if (plainSelect.getFromItem() != null) {
-            extractTables(plainSelect.getFromItem(), tables, builder);
+            extractTables(plainSelect.getFromItem(), tables, builder, aliasMap);
         }
         builder.tables(tables);
+        builder.aliasMap(aliasMap);
 
         // Parse JOINs
         List<ParsedQuery.JoinInfo> joins = new ArrayList<>();
         if (plainSelect.getJoins() != null) {
             for (Join join : plainSelect.getJoins()) {
-                ParsedQuery.JoinInfo joinInfo = parseJoin(join);
+                ParsedQuery.JoinInfo joinInfo = parseJoin(join, aliasMap);
                 joins.add(joinInfo);
                 if (join.getFromItem() instanceof Table table) {
                     tables.add(table.getName());
@@ -148,9 +150,12 @@ public class SQLParserEngine {
         }
     }
 
-    private void extractTables(FromItem fromItem, List<String> tables, ParsedQuery.ParsedQueryBuilder builder) {
+    private void extractTables(FromItem fromItem, List<String> tables, ParsedQuery.ParsedQueryBuilder builder, java.util.Map<String,String> aliasMap) {
         if (fromItem instanceof Table table) {
             tables.add(table.getName());
+            if (table.getAlias() != null && table.getAlias().getName() != null) {
+                aliasMap.put(table.getAlias().getName(), table.getName());
+            }
         } else {
             // handle subselects or other from-item types by parsing their SQL
             try {
@@ -160,13 +165,16 @@ public class SQLParserEngine {
                     subqueries = new ArrayList<>();
                 subqueries.add(subquery);
                 builder.subqueries(subqueries);
+                if (fromItem.getAlias() != null && fromItem.getAlias().getName() != null) {
+                    aliasMap.put(fromItem.getAlias().getName(), "SUBQUERY");
+                }
             } catch (Exception e) {
                 log.debug("Failed to parse from-item as subquery: {}", e.getMessage());
             }
         }
     }
 
-    private ParsedQuery.JoinInfo parseJoin(Join join) {
+    private ParsedQuery.JoinInfo parseJoin(Join join, java.util.Map<String,String> aliasMap) {
         String joinType = "INNER";
         if (join.isLeft())
             joinType = "LEFT";
@@ -184,6 +192,9 @@ public class SQLParserEngine {
         if (fromItem instanceof Table table) {
             tableName = table.getName();
             alias = table.getAlias() != null ? table.getAlias().getName() : "";
+            if (table.getAlias() != null && table.getAlias().getName() != null) {
+                aliasMap.put(table.getAlias().getName(), table.getName());
+            }
         } else if (fromItem.getClass().getSimpleName().equals("SubSelect")) {
             alias = fromItem.getAlias() != null ? fromItem.getAlias().getName() : "";
             try {
@@ -193,6 +204,9 @@ public class SQLParserEngine {
                 log.debug("Failed to parse join subselect: {}", e.getMessage());
             }
             tableName = alias != null && !alias.isEmpty() ? alias : "";
+            if (fromItem.getAlias() != null && fromItem.getAlias().getName() != null) {
+                aliasMap.put(fromItem.getAlias().getName(), "SUBQUERY");
+            }
         } else {
             // fallback: attempt to parse whatever the fromItem string is
             try {
