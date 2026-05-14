@@ -27,6 +27,7 @@ public class QueryParseResponse {
     private boolean hasHaving;
     private List<String> aggregateFunctions;
     private List<FunctionResponse> functions;
+    private List<SelectExpressionResponse> selectExpressions;
 
     @Data
     @Builder
@@ -59,5 +60,18 @@ public class QueryParseResponse {
         private String name;
         private String category;
         private String expression;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class SelectExpressionResponse {
+        private String type;
+        private String text;
+        private String alias;
+        private String operator;
+        private String value;
+        private List<SelectExpressionResponse> children;
     }
 }
