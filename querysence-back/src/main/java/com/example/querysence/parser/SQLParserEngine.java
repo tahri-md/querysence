@@ -19,11 +19,32 @@ import net.sf.jsqlparser.statement.update.Update;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 @Component
 @Slf4j
 public class SQLParserEngine {
+
+    private static final Set<String> AGGREGATE_FUNCTIONS = new HashSet<>(Arrays.asList(
+        "COUNT", "SUM", "AVG", "MIN", "MAX", "STDDEV", "STDDEV_POP", "STDDEV_SAMP",
+        "VARIANCE", "VAR_POP", "VAR_SAMP", "GROUP_CONCAT", "STRING_AGG", "ARRAY_AGG", "JSON_AGG",
+        "BOOL_AND", "BOOL_OR"
+    ));
+
+    private static final Set<String> WINDOW_FUNCTIONS = new HashSet<>(Arrays.asList(
+        "ROW_NUMBER", "RANK", "DENSE_RANK", "PERCENT_RANK", "CUME_DIST", "NTILE",
+        "LAG", "LEAD", "FIRST_VALUE", "LAST_VALUE", "NTH_VALUE"
+    ));
+
+    private static final Set<String> SCALAR_FUNCTIONS = new HashSet<>(Arrays.asList(
+        "LOWER", "UPPER", "ROUND", "ABS", "TRIM", "LTRIM", "RTRIM", "COALESCE",
+        "CONCAT", "LENGTH", "SUBSTRING", "SUBSTR", "REPLACE", "CAST", "CEIL", "FLOOR",
+        "LEFT", "RIGHT", "POSITION", "NOW", "CURRENT_DATE", "CURRENT_TIMESTAMP"
+    ));
 
     public ParsedQuery parse(String sql) {
         try {
@@ -71,6 +92,7 @@ public class SQLParserEngine {
         // Parse SELECT columns
         List<String> columns = new ArrayList<>();
         List<String> aggregates = new ArrayList<>();
+        List<ParsedQuery.FunctionInfo> functions = new ArrayList<>();
 
         for (SelectItem<?> item : plainSelect.getSelectItems()) {
             if (item.getExpression() instanceof AllColumns) {
@@ -80,14 +102,16 @@ public class SQLParserEngine {
             } else if (item.getExpression() instanceof Column col) {
                 columns.add(col.getColumnName());
             } else if (item.getExpression() instanceof Function func) {
-                aggregates.add(func.getName());
+                collectFunctionUsage(func, functions, aggregates);
                 columns.add(func.toString());
             } else {
+                collectFunctionsFromExpression(item.getExpression(), functions, aggregates);
                 columns.add(item.toString());
             }
         }
         builder.columns(columns);
         builder.aggregateFunctions(aggregates);
+        builder.functions(functions);
         builder.hasDistinct(plainSelect.getDistinct() != null);
 
         // Parse FROM clause
@@ -117,6 +141,7 @@ public class SQLParserEngine {
         ParsedQuery.Condition whereCondition = null;
         if (plainSelect.getWhere() != null) {
             whereCondition = parseWhereExpression(plainSelect.getWhere(), subqueries, depth);
+            collectFunctionsFromExpression(plainSelect.getWhere(), functions, aggregates);
         }
         if (whereCondition != null) {
             builder.whereConditions(flattenConditions(whereCondition));
@@ -137,6 +162,9 @@ public class SQLParserEngine {
 
         // Parse HAVING
         builder.hasHaving(plainSelect.getHaving() != null);
+        if (plainSelect.getHaving() != null) {
+            collectFunctionsFromExpression(plainSelect.getHaving(), functions, aggregates);
+        }
 
         // Parse ORDER BY
         if (plainSelect.getOrderByElements() != null) {
@@ -145,9 +173,139 @@ public class SQLParserEngine {
                 if (elem.getExpression() instanceof Column col) {
                     orderByCols.add(col.getColumnName());
                 }
+                collectFunctionsFromExpression(elem.getExpression(), functions, aggregates);
             });
             builder.orderByColumns(orderByCols);
         }
+
+        builder.aggregateFunctions(aggregates);
+        builder.functions(functions);
+    }
+
+    private void collectFunctionsFromExpression(Expression expression,
+                                                List<ParsedQuery.FunctionInfo> functions,
+                                                List<String> aggregateNames) {
+        if (expression == null) {
+            return;
+        }
+
+        if (expression instanceof Function function) {
+            collectFunctionUsage(function, functions, aggregateNames);
+            return;
+        }
+
+        if (expression instanceof BinaryExpression binaryExpression) {
+            collectFunctionsFromExpression(binaryExpression.getLeftExpression(), functions, aggregateNames);
+            collectFunctionsFromExpression(binaryExpression.getRightExpression(), functions, aggregateNames);
+            return;
+        }
+
+        if (expression instanceof CaseExpression caseExpression) {
+            if (caseExpression.getSwitchExpression() != null) {
+                collectFunctionsFromExpression(caseExpression.getSwitchExpression(), functions, aggregateNames);
+            }
+            if (caseExpression.getWhenClauses() != null) {
+                caseExpression.getWhenClauses().forEach(whenClause -> {
+                    collectFunctionsFromExpression(whenClause.getWhenExpression(), functions, aggregateNames);
+                    collectFunctionsFromExpression(whenClause.getThenExpression(), functions, aggregateNames);
+                });
+            }
+            collectFunctionsFromExpression(caseExpression.getElseExpression(), functions, aggregateNames);
+            return;
+        }
+
+        if (expression.getClass().getSimpleName().equals("ParenthesedExpressionList")) {
+            extractExpressionListFromObject(expression, functions, aggregateNames);
+        }
+    }
+
+    private void collectFunctionUsage(Function function,
+                                     List<ParsedQuery.FunctionInfo> functions,
+                                     List<String> aggregateNames) {
+        if (function == null) {
+            return;
+        }
+
+        String name = function.getName();
+        if (name == null || name.isBlank()) {
+            name = function.toString();
+        }
+
+        ParsedQuery.FunctionCategory category = classifyFunction(function);
+        functions.add(ParsedQuery.FunctionInfo.builder()
+                .name(name)
+                .category(category)
+                .expression(function.toString())
+                .build());
+
+        if (category == ParsedQuery.FunctionCategory.AGGREGATE) {
+            aggregateNames.add(name);
+        }
+
+        try {
+            java.lang.reflect.Method parametersMethod = function.getClass().getMethod("getParameters");
+            Object parameters = parametersMethod.invoke(function);
+            extractExpressionListFromObject(parameters, functions, aggregateNames);
+        } catch (NoSuchMethodException ignored) {
+        } catch (Exception e) {
+            log.debug("Failed to inspect function parameters for nested functions: {}", e.getMessage());
+        }
+    }
+
+    private void extractExpressionListFromObject(Object candidate,
+                                                 List<ParsedQuery.FunctionInfo> functions,
+                                                 List<String> aggregateNames) {
+        if (candidate == null) {
+            return;
+        }
+
+        try {
+            java.lang.reflect.Method expressionsMethod = candidate.getClass().getMethod("getExpressions");
+            Object expressions = expressionsMethod.invoke(candidate);
+            if (expressions instanceof java.util.List<?> list) {
+                for (Object item : list) {
+                    if (item instanceof Expression itemExpression) {
+                        collectFunctionsFromExpression(itemExpression, functions, aggregateNames);
+                    }
+                }
+                return;
+            }
+        } catch (NoSuchMethodException ignored) {
+        } catch (Exception e) {
+            log.debug("Failed to inspect expression list for nested functions: {}", e.getMessage());
+        }
+
+        if (candidate instanceof Expression expression) {
+            collectFunctionsFromExpression(expression, functions, aggregateNames);
+        }
+    }
+
+    private ParsedQuery.FunctionCategory classifyFunction(Function function) {
+        if (function == null) {
+            return ParsedQuery.FunctionCategory.CUSTOM;
+        }
+
+        String name = function.getName();
+        if (name == null) {
+            return ParsedQuery.FunctionCategory.CUSTOM;
+        }
+
+        String normalizedName = name.toUpperCase(Locale.ROOT);
+        String expression = function.toString().toUpperCase(Locale.ROOT);
+
+        if (expression.contains(" OVER ") || WINDOW_FUNCTIONS.contains(normalizedName)) {
+            return ParsedQuery.FunctionCategory.WINDOW;
+        }
+
+        if (AGGREGATE_FUNCTIONS.contains(normalizedName)) {
+            return ParsedQuery.FunctionCategory.AGGREGATE;
+        }
+
+        if (SCALAR_FUNCTIONS.contains(normalizedName)) {
+            return ParsedQuery.FunctionCategory.SCALAR;
+        }
+
+        return ParsedQuery.FunctionCategory.CUSTOM;
     }
 
     private void extractTables(FromItem fromItem, List<String> tables, ParsedQuery.ParsedQueryBuilder builder, java.util.Map<String,String> aliasMap) {

@@ -66,6 +66,13 @@ public class QueryParserService {
                 .hasDistinct(parsed.isHasDistinct())
                 .hasHaving(parsed.isHasHaving())
                 .aggregateFunctions(parsed.getAggregateFunctions())
+                .functions(parsed.getFunctions().stream()
+                    .map(f -> QueryParseResponse.FunctionResponse.builder()
+                        .name(f.getName())
+                        .category(f.getCategory() != null ? f.getCategory().name() : null)
+                        .expression(f.getExpression())
+                        .build())
+                    .toList())
                 .build();
     }
 
