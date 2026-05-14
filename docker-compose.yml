@@ -1,0 +1,52 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: querysence-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: querysence
+      POSTGRES_USER: amine
+      POSTGRES_PASSWORD: amine
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U amine -d querysence"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  backend:
+    build:
+      context: ./querysence-back
+      dockerfile: Dockerfile
+    container_name: querysence-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 8081
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/querysence
+      SPRING_DATASOURCE_USERNAME: amine
+      SPRING_DATASOURCE_PASSWORD: amine
+    ports:
+      - "8081:8081"
+
+  frontend:
+    build:
+      context: ./querysence-front
+      dockerfile: Dockerfile
+    container_name: querysence-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8081
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
