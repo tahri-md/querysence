@@ -25,6 +25,7 @@ public class QueryParseResponse {
     private boolean hasDistinct;
     private boolean hasHaving;
     private List<String> aggregateFunctions;
+    private List<FunctionResponse> functions;
 
     @Data
     @Builder
@@ -47,5 +48,15 @@ public class QueryParseResponse {
         private String operator;
         private String value;
         private boolean isParameterized;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class FunctionResponse {
+        private String name;
+        private String category;
+        private String expression;
     }
 }

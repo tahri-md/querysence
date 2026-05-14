@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -44,7 +45,10 @@ public class ParsedQuery {
     private List<String> aggregateFunctions = new ArrayList<>();
 
     @Builder.Default
-    private java.util.Map<String, String> aliasMap = new java.util.HashMap<>();
+    private List<FunctionInfo> functions = new ArrayList<>();
+
+    @Builder.Default
+    private Map<String, String> aliasMap = new java.util.HashMap<>();
     
     private boolean hasDistinct;
     private boolean hasHaving;
@@ -70,6 +74,23 @@ public class ParsedQuery {
     public static class JoinKey {
         private String left;
         private String right;
+    }
+
+    public enum FunctionCategory {
+        AGGREGATE,
+        SCALAR,
+        WINDOW,
+        CUSTOM
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class FunctionInfo {
+        private String name;
+        private FunctionCategory category;
+        private String expression;
     }
     
     @Data
