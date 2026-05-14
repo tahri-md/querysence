@@ -66,13 +66,33 @@ public class QueryParserService {
                 .hasDistinct(parsed.isHasDistinct())
                 .hasHaving(parsed.isHasHaving())
                 .aggregateFunctions(parsed.getAggregateFunctions())
+                .selectExpressions(parsed.getSelectExpressions().stream()
+                        .map(this::mapSelectExpression)
+                        .toList())
                 .functions(parsed.getFunctions().stream()
-                    .map(f -> QueryParseResponse.FunctionResponse.builder()
-                        .name(f.getName())
-                        .category(f.getCategory() != null ? f.getCategory().name() : null)
-                        .expression(f.getExpression())
-                        .build())
-                    .toList())
+                        .map(f -> QueryParseResponse.FunctionResponse.builder()
+                                .name(f.getName())
+                                .category(f.getCategory() != null ? f.getCategory().name() : null)
+                                .expression(f.getExpression())
+                                .build())
+                        .toList())
+                .build();
+    }
+
+    private QueryParseResponse.SelectExpressionResponse mapSelectExpression(ParsedQuery.SelectExpression expression) {
+        if (expression == null) {
+            return null;
+        }
+
+        return QueryParseResponse.SelectExpressionResponse.builder()
+                .type(expression.getType() != null ? expression.getType().name() : null)
+                .text(expression.getText())
+                .alias(expression.getAlias())
+                .operator(expression.getOperator())
+                .value(expression.getValue())
+                .children(expression.getChildren() == null ? null : expression.getChildren().stream()
+                        .map(this::mapSelectExpression)
+                        .toList())
                 .build();
     }
 
