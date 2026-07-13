@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
+import { PageHeader } from "@/components/page-header"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -149,13 +150,8 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
-        <p className="text-muted-foreground">
-          Manage your account settings and preferences
-        </p>
-      </div>
+    <div className="space-y-6 font-mono">
+      <PageHeader title="Settings" description="Manage your account settings and preferences" />
 
       <div className="grid gap-6">
         <Card>

@@ -13,6 +13,7 @@ import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { PageHeader } from "@/components/page-header"
 import { aiApi, type SecurityScanResponse } from "@/lib/api"
 
 const languages = [
@@ -118,13 +119,8 @@ ${i + 1}. [${f.severity}] ${f.type}
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Security Scanner</h1>
-        <p className="text-muted-foreground">
-          Scan your SQL queries and code for security vulnerabilities
-        </p>
-      </div>
+    <div className="space-y-6 font-mono">
+      <PageHeader title="Security Scanner" description="Scan your SQL queries and code for security vulnerabilities" />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -167,7 +163,7 @@ stmt.executeQuery(query);`}
               />
             </div>
 
-            <Button onClick={handleScan} disabled={isLoading} className="w-full">
+            <Button size="lg" onClick={handleScan} disabled={isLoading} className="w-full">
               {isLoading ? "Scanning..." : "Scan for Vulnerabilities"}
             </Button>
           </CardContent>

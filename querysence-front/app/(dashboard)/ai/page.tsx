@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SQLEditor } from "@/components/sql-editor"
+import { PageHeader } from "@/components/page-header"
 import { Label } from "@/components/ui/label"
 import { aiApi, projectsApi, type NLToSQLResponse, type ExplainResponse, type OptimizeResponse } from "@/lib/api"
 
@@ -139,13 +140,8 @@ export default function AIAssistantPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">AI Assistant</h1>
-        <p className="text-muted-foreground">
-          Use AI to generate, explain, and optimize your SQL queries
-        </p>
-      </div>
+    <div className="space-y-6 font-mono">
+      <PageHeader title="AI Assistant" description="Use AI to generate, explain, and optimize your SQL queries" />
 
       <Tabs defaultValue="nl-to-sql" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
@@ -205,7 +201,7 @@ export default function AIAssistantPage() {
                   />
                 </div>
 
-                <Button onClick={handleNlToSql} disabled={isNlLoading} className="w-full">
+                <Button size="lg" onClick={handleNlToSql} disabled={isNlLoading} className="w-full">
                   {isNlLoading ? "Generating..." : "Generate SQL"}
                 </Button>
               </CardContent>
@@ -320,7 +316,7 @@ ORDER BY revenue DESC;"
                   minHeight="200px"
                 />
 
-                <Button onClick={handleExplain} disabled={isExplainLoading} className="w-full">
+                <Button size="lg" onClick={handleExplain} disabled={isExplainLoading} className="w-full">
                   {isExplainLoading ? "Explaining..." : "Explain Query"}
                 </Button>
               </CardContent>
@@ -413,7 +409,7 @@ ORDER BY revenue DESC;"
                   </Select>
                 </div>
 
-                <Button onClick={handleOptimize} disabled={isOptimizeLoading} className="w-full">
+                <Button size="lg" onClick={handleOptimize} disabled={isOptimizeLoading} className="w-full">
                   {isOptimizeLoading ? "Optimizing..." : "Get Optimization Suggestions"}
                 </Button>
               </CardContent>

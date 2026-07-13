@@ -6,6 +6,7 @@ import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { ProjectSharingDialog } from "@/components/project-sharing-dialog"
+import { PageHeader } from "@/components/page-header"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -340,15 +341,12 @@ export default function SchemasPage() {
   }
 
   return (
-    <div className="space-y-6 px-4 sm:px-0">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Schema Registry</h1>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            Manage your database schemas and table definitions
-          </p>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+    <div className="space-y-6 font-mono">
+      <PageHeader
+        title="Schema Registry"
+        description="Manage your database schemas and table definitions"
+        actions={
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
           <Dialog open={isAddTableOpen} onOpenChange={setIsAddTableOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" className="w-full sm:w-auto justify-center sm:justify-start bg-transparent">
@@ -631,8 +629,9 @@ export default function SchemasPage() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
-      </div>
+          </div>
+        }
+      />
 
       <div className="grid gap-6 grid-cols-1 lg:grid-cols-3">
         <Card className="lg:col-span-1">
