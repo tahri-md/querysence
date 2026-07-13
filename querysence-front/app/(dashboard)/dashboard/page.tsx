@@ -11,6 +11,7 @@ import { Suspense } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
 import { SQLEditor } from "@/components/sql-editor"
+import { PageHeader } from "@/components/page-header"
 import { analyticsApi, queryApi, type AnalyticsOverview, type HistoryEntry, historyApi } from "@/lib/api"
 import { toast } from "sonner"
 
@@ -204,13 +205,8 @@ export default function DashboardPage() {
         </DialogContent>
       </Dialog>
       <Suspense fallback={<Loading />}>
-        <div className="space-y-6 px-4 sm:px-0">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-sm sm:text-base text-muted-foreground">
-              Overview of your SQL analysis activity
-            </p>
-          </div>
+        <div className="space-y-6 font-mono">
+          <PageHeader title="Dashboard" description="Overview of your SQL analysis activity" />
 
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
@@ -278,13 +274,13 @@ export default function DashboardPage() {
                 placeholder="SELECT * FROM users WHERE ..."
                 minHeight="100px"
               />
-              <Button onClick={handleQuickAnalyze} disabled={isAnalyzing} className="w-full">
+              <Button size="lg" onClick={handleQuickAnalyze} disabled={isAnalyzing} className="w-full">
                 {isAnalyzing ? "Analyzing..." : "Analyze Query"}
               </Button>
             </CardContent>
           </Card>
 
-          <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
+          <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg sm:text-xl">Query Trend</CardTitle>
@@ -388,7 +384,7 @@ export default function DashboardPage() {
                         <div className="text-xs text-muted-foreground">Invited as: {invite.role}</div>
                         <div className="text-xs text-muted-foreground">From: {invite.createdByEmail}</div>
                       </div>
-                      <Button size="sm" onClick={() => handleAcceptInviteFromList(invite.inviteCode)} disabled={acceptingInvite}>
+                      <Button size="lg" onClick={() => handleAcceptInviteFromList(invite.inviteCode)} disabled={acceptingInvite}>
                         Accept
                       </Button>
                     </div>

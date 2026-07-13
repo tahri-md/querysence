@@ -10,9 +10,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SQLEditor } from "@/components/sql-editor"
+import { PageHeader } from "@/components/page-header"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { queryApi, projectsApi, type AnalysisResult, type Schema } from "@/lib/api"
@@ -126,15 +126,11 @@ function AnalyzePageContent() {
   }
 
   return (
-    <div className="container max-w-6xl py-6 space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Query Analyzer</h1>
-        <p className="text-muted-foreground mt-2">
-          Analyze your SQL queries for complexity, performance, and optimization opportunities
-        </p>
-      </div>
-
-      <Separator />
+    <div className="space-y-6 font-mono">
+      <PageHeader
+        title="Query Analyzer"
+        description="Analyze your SQL queries for complexity, performance, and optimization opportunities"
+      />
 
       <Card>
         <CardHeader>
@@ -200,7 +196,7 @@ function AnalyzePageContent() {
             </div>
           </div>
 
-          <Button onClick={handleAnalyze} disabled={isLoading} className="w-full">
+          <Button size="lg" onClick={handleAnalyze} disabled={isLoading} className="w-full">
             {isLoading ? (
               "Analyzing..."
             ) : (
