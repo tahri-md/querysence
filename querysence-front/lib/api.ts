@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081"
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8082"
 
 interface ApiOptions {
   method?: string
@@ -131,14 +131,53 @@ export const queryApi = {
   parse: (sql: string, dialect: string = "POSTGRESQL") =>
     fetchApi<ParseResult>(`/queries/parse?sql=${encodeURIComponent(sql)}&dialect=${encodeURIComponent(dialect)}`),
 
-  analyze: (sql: string, projectId?: number, schemaId?: number, executionTimeMs?: number) =>
+  analyze: (sql: string, projectId?: number, schemaId?: number, executionTimeMs?: number, dbConnectionId?: number) =>
     fetchApi<AnalysisResult>("/queries/analyze", {
       method: "POST",
-      body: { sql, projectId, schemaId, executionTimeMs },
+      body: { sql, projectId, schemaId, executionTimeMs, dbConnectionId },
     }),
 
   get: (id: number) =>
     fetchApi<AnalysisResult>(`/queries/${id}`),
+}
+
+// DB Connections API — live database connections for schema sync + real EXPLAIN plans
+export const dbConnectionsApi = {
+  list: (projectId: number) =>
+    fetchApi<DbConnection[]>(`/projects/${projectId}/db-connections`),
+
+  create: (
+    projectId: number,
+    data: {
+      name: string
+      host: string
+      port: number
+      databaseName: string
+      username: string
+      password: string
+      dialect: string
+      sslEnabled?: boolean
+      readOnlyEnforced?: boolean
+    }
+  ) =>
+    fetchApi<DbConnection>(`/projects/${projectId}/db-connections`, {
+      method: "POST",
+      body: data,
+    }),
+
+  delete: (projectId: number, connectionId: number) =>
+    fetchApi(`/projects/${projectId}/db-connections/${connectionId}`, { method: "DELETE" }),
+
+  test: (projectId: number, connectionId: number) =>
+    fetchApi<TestConnectionResult>(`/projects/${projectId}/db-connections/${connectionId}/test`, {
+      method: "POST",
+    }),
+
+  syncSchema: (projectId: number, connectionId: number, schemaId?: number) =>
+    fetchApi<SchemaSyncResult>(
+      `/projects/${projectId}/db-connections/${connectionId}/sync-schema${schemaId ? `?schemaId=${schemaId}` : ""}`,
+      { method: "POST" }
+    ),
 }
 
 // AI Features API
@@ -202,6 +241,57 @@ export interface Schema {
   name: string
   dialect: string
   tables: TableDefinition[]
+  source?: "MANUAL" | "SYNCED"
+  dbConnectionId?: number | null
+  lastSyncedAt?: string | null
+}
+
+export interface DbConnection {
+  id: number
+  projectId: number
+  name: string
+  host: string
+  port: number
+  databaseName: string
+  username: string
+  dialect: "POSTGRESQL" | "MYSQL" | "SQLSERVER" | "ORACLE"
+  sslEnabled: boolean
+  readOnlyEnforced: boolean
+  status: "UNTESTED" | "CONNECTED" | "FAILED" | "EXPIRED_CREDENTIALS"
+  lastTestedAt?: string | null
+  lastSyncedAt?: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface TestConnectionResult {
+  success: boolean
+  status: string
+  message: string
+  latencyMs: number
+}
+
+export interface SchemaSyncResult {
+  syncLogId: number
+  schemaId?: number
+  status: "RUNNING" | "SUCCESS" | "FAILED"
+  tablesDiscovered?: number
+  columnsDiscovered?: number
+  indexesDiscovered?: number
+  errorMessage?: string
+  startedAt: string
+  finishedAt?: string
+}
+
+export interface ExecutionPlan {
+  id: number
+  source: "STATIC_HEURISTIC" | "LIVE_EXPLAIN"
+  planText: string
+  estimatedCost?: number
+  actualRows?: number
+  actualTimeMs?: number
+  usedIndexes: string[]
+  fullTableScans: string[]
 }
 
 export interface TableDefinition {
@@ -264,6 +354,8 @@ export interface AnalysisResult {
   }
   indexSuggestions: IndexSuggestion[]
   warnings: string[]
+  dbConnectionId?: number | null
+  executionPlan?: ExecutionPlan | null
 }
 
 export interface IndexSuggestion {
