@@ -13,12 +13,17 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class QueryAnalysisResponse {
-    
+
     private Long queryId;
     private String queryType;
     private ComplexityReport complexity;
     private List<IndexSuggestionResponse> indexSuggestions;
     private List<String> warnings;
     private com.example.querysence.model.QueryParseResponse parseResult;
+
+    //  null if analyzed statically (no dbConnectionId supplied in the request)
+    private Long dbConnectionId;
+    private ExecutionPlanDto executionPlan;
+
     private LocalDateTime analyzedAt;
 }
