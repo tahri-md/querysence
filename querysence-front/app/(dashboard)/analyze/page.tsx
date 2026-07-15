@@ -10,12 +10,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { SQLEditor } from "@/components/sql-editor"
-import { PageHeader } from "@/components/page-header"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { queryApi, projectsApi, type AnalysisResult, type Schema } from "@/lib/api"
+import { queryApi, projectsApi, dbConnectionsApi, type AnalysisResult, type Schema, type DbConnection } from "@/lib/api"
 import Loading from "./loading"
 
 function AnalyzePageContent() {
@@ -26,6 +26,8 @@ function AnalyzePageContent() {
   const [executionTime, setExecutionTime] = useState("")
   const [projects, setProjects] = useState<{ id: number; name: string }[]>([])
   const [schemas, setSchemas] = useState<{ id: number; name: string; projectId: number; projectName: string }[]>([])
+  const [connections, setConnections] = useState<DbConnection[]>([])
+  const [dbConnectionId, setDbConnectionId] = useState<string>("none")
   const [isLoading, setIsLoading] = useState(false)
   const [isFetchingSchemas, setIsFetchingSchemas] = useState(true)
   const [result, setResult] = useState<AnalysisResult | null>(null)
@@ -75,6 +77,23 @@ function AnalyzePageContent() {
     }
   }, [searchParams])
 
+  useEffect(() => {
+    async function fetchConnections() {
+      if (!projectId) {
+        setConnections([])
+        return
+      }
+      try {
+        const list = await dbConnectionsApi.list(parseInt(projectId, 10))
+        setConnections(list.filter((c) => c.status === "CONNECTED"))
+      } catch {
+        setConnections([])
+      }
+    }
+    setDbConnectionId("none")
+    fetchConnections()
+  }, [projectId])
+
   const handleAnalyze = async () => {
     if (!sql.trim()) {
       toast.error("Please enter a SQL query")
@@ -94,10 +113,15 @@ function AnalyzePageContent() {
         sql,
         parseInt(projectId),
         schemaId ? parseInt(schemaId) : undefined,
-        executionTime ? parseInt(executionTime) : undefined
+        executionTime ? parseInt(executionTime) : undefined,
+        dbConnectionId !== "none" ? parseInt(dbConnectionId, 10) : undefined
       )
       setResult(analysisResult)
-      toast.success("Query analyzed successfully")
+      toast.success(
+        analysisResult.executionPlan?.source === "LIVE_EXPLAIN"
+          ? "Analyzed with a live EXPLAIN plan"
+          : "Query analyzed successfully"
+      )
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Analysis failed")
     } finally {
@@ -126,11 +150,15 @@ function AnalyzePageContent() {
   }
 
   return (
-    <div className="space-y-6 font-mono">
-      <PageHeader
-        title="Query Analyzer"
-        description="Analyze your SQL queries for complexity, performance, and optimization opportunities"
-      />
+    <div className="container max-w-6xl font-mono py-6 space-y-8">
+      <div>
+        <h1 className="text-3xl font-black tracking-tight">Query Analyzer</h1>
+        <p className="text-muted-foreground mt-2">
+          Analyze your SQL queries for complexity, performance, and optimization opportunities
+        </p>
+      </div>
+
+      <Separator />
 
       <Card>
         <CardHeader>
@@ -140,7 +168,7 @@ function AnalyzePageContent() {
         <CardContent className="space-y-4">
           <SQLEditor value={sql} onChange={setSql} />
 
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-4">
             <div className="space-y-2">
               <Label htmlFor="project">Project *</Label>
               <Select value={projectId} onValueChange={(value) => {
@@ -180,6 +208,26 @@ function AnalyzePageContent() {
                         {schema.name}
                       </SelectItem>
                     ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="db-connection" className="flex items-center gap-1.5">
+                <Zap className="w-3 h-3 text-primary" />
+                Live connection
+              </Label>
+              <Select value={dbConnectionId} onValueChange={setDbConnectionId} disabled={!projectId}>
+                <SelectTrigger id="db-connection">
+                  <SelectValue placeholder="Static analysis only" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Static analysis only</SelectItem>
+                  {connections.map((conn) => (
+                    <SelectItem key={conn.id} value={conn.id.toString()}>
+                      {conn.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -266,6 +314,68 @@ function AnalyzePageContent() {
                 </div>
               </CardContent>
             </Card>
+
+            {result.executionPlan && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0">
+                  <div>
+                    <CardTitle>Execution Plan</CardTitle>
+                    <CardDescription>
+                      {result.executionPlan.source === "LIVE_EXPLAIN"
+                        ? "Real plan pulled from your connected database"
+                        : "Estimated from static heuristics"}
+                    </CardDescription>
+                  </div>
+                  <Badge
+                    variant={result.executionPlan.source === "LIVE_EXPLAIN" ? "default" : "secondary"}
+                    className="gap-1.5"
+                  >
+                    <Zap className="w-3 h-3" />
+                    {result.executionPlan.source === "LIVE_EXPLAIN" ? "Live" : "Static"}
+                  </Badge>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {result.executionPlan.source === "LIVE_EXPLAIN" && (
+                    <div className="grid gap-4 md:grid-cols-3">
+                      <div className="p-4 rounded-lg border">
+                        <div className="text-2xl font-bold">
+                          {result.executionPlan.actualTimeMs?.toFixed(1) ?? "—"} ms
+                        </div>
+                        <div className="text-sm text-muted-foreground">Actual time</div>
+                      </div>
+                      <div className="p-4 rounded-lg border">
+                        <div className="text-2xl font-bold">{result.executionPlan.actualRows ?? "—"}</div>
+                        <div className="text-sm text-muted-foreground">Rows returned</div>
+                      </div>
+                      <div className="p-4 rounded-lg border">
+                        <div className="text-2xl font-bold">
+                          {result.executionPlan.fullTableScans.length}
+                        </div>
+                        <div className="text-sm text-muted-foreground">Full table scans</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {result.executionPlan.fullTableScans.length > 0 && (
+                    <div className="flex items-start gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      Full table scan on: {result.executionPlan.fullTableScans.join(", ")}
+                    </div>
+                  )}
+
+                  {result.executionPlan.usedIndexes.length > 0 && (
+                    <div className="flex items-start gap-2 rounded-lg bg-emerald-500/10 px-3 py-2 text-sm text-emerald-600 dark:text-emerald-400">
+                      <CheckCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      Used indexes: {result.executionPlan.usedIndexes.join(", ")}
+                    </div>
+                  )}
+
+                  <pre className="rounded-lg border bg-muted p-4 text-xs overflow-x-auto whitespace-pre-wrap">
+                    {result.executionPlan.planText}
+                  </pre>
+                </CardContent>
+              </Card>
+            )}
 
             {result.indexSuggestions.length > 0 && (
               <Card>
