@@ -12,12 +12,14 @@ import org.springframework.stereotype.Service;
 import com.example.querysence.exception.BadRequestException;
 import com.example.querysence.exception.ResourceNotFoundException;
 import com.example.querysence.model.ColumnDefinition;
+import com.example.querysence.model.DbConnection;
 import com.example.querysence.model.IndexDefinition;
 import com.example.querysence.model.Project;
 import com.example.querysence.model.ProjectMember;
 import com.example.querysence.model.SchemaDefinition;
 import com.example.querysence.model.TableDefinition;
 import com.example.querysence.model.User;
+import com.example.querysence.model.dto.DbConnectionDto;
 import com.example.querysence.model.dto.ProjectCreateRequest;
 
 import com.example.querysence.model.dto.ProjectResponse;
@@ -44,7 +46,7 @@ public class SchemaManagementService {
     private  SchemaDefinitionRepository schemaRepository;
         @Autowired
     private  TableDefinitionRepository tableRepository;
-    
+
     @Autowired
     private ProjectMemberRepository projectMemberRepository;
 
@@ -65,7 +67,6 @@ public class SchemaManagementService {
 
         project = projectRepository.save(project);
 
-        // Add creator as ProjectMember with OWNER role
         ProjectMember creatorMember = ProjectMember.builder()
             .project(project)
             .user(user)
@@ -96,7 +97,6 @@ public class SchemaManagementService {
         User user = userRepository.findByEmail(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        // Check if user is owner or shared member
         boolean isOwner = project.getOwner().getId().equals(user.getId());
         boolean isMember = projectMemberRepository.findByProjectIdAndUserId(id, user.getId()).isPresent();
 
@@ -115,7 +115,6 @@ public class SchemaManagementService {
         User user = userRepository.findByEmail(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        // Only owner can delete
         if (!project.getOwner().getId().equals(user.getId())) {
             throw new BadRequestException("You don't have permission to delete this project");
         }
@@ -129,6 +128,7 @@ public class SchemaManagementService {
                 .name(project.getName())
                 .description(project.getDescription())
                 .schemaCount(project.getSchemas().size())
+                .dbConnections(mapConnectionsToDto(project))
                 .createdAt(project.getCreatedAt())
                 .updatedAt(project.getUpdatedAt())
                 .build();
@@ -136,14 +136,7 @@ public class SchemaManagementService {
 
     private ProjectResponse mapToResponseWithSchemas(Project project) {
         List<SchemaResponse> schemas = project.getSchemas().stream()
-                .map(s -> SchemaResponse.builder()
-                        .id(s.getId())
-                        .name(s.getName())
-                        .dialect(s.getDialect())
-                        .projectId(project.getId())
-                        .createdAt(s.getCreatedAt())
-                        .updatedAt(s.getUpdatedAt())
-                        .build())
+                .map(this::mapToResponse)
                 .toList();
 
         return ProjectResponse.builder()
@@ -152,12 +145,37 @@ public class SchemaManagementService {
                 .description(project.getDescription())
                 .schemaCount(schemas.size())
                 .schemas(schemas)
+                .dbConnections(mapConnectionsToDto(project))
                 .createdAt(project.getCreatedAt())
                 .updatedAt(project.getUpdatedAt())
                 .build();
     }
 
-   
+    private List<DbConnectionDto> mapConnectionsToDto(Project project) {
+        List<DbConnection> connections = project.getDbConnections();
+        if (connections == null) {
+            return new ArrayList<>();
+        }
+        return connections.stream()
+                .map(c -> DbConnectionDto.builder()
+                        .id(c.getId())
+                        .projectId(project.getId())
+                        .name(c.getName())
+                        .host(c.getHost())
+                        .port(c.getPort())
+                        .databaseName(c.getDatabaseName())
+                        .username(c.getUsername())
+                        .dialect(c.getDialect().name())
+                        .sslEnabled(c.getSslEnabled())
+                        .readOnlyEnforced(c.getReadOnlyEnforced())
+                        .status(c.getStatus().name())
+                        .lastTestedAt(c.getLastTestedAt())
+                        .lastSyncedAt(c.getLastSyncedAt())
+                        .createdAt(c.getCreatedAt())
+                        .updatedAt(c.getUpdatedAt())
+                        .build())
+                .toList();
+    }
 
     @Transactional
     public SchemaResponse createSchema(Long projectId, SchemaCreateRequest request, String username) {
@@ -167,7 +185,6 @@ public class SchemaManagementService {
         User user = userRepository.findByEmail(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        // Check if user is owner or editor member
         boolean isOwner = project.getOwner().getId().equals(user.getId());
         if (!isOwner) {
             ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, user.getId())
@@ -187,7 +204,6 @@ public class SchemaManagementService {
                 .project(project)
                 .build();
 
-        // Parse DDL script if provided
         if (request.getDdlScript() != null && !request.getDdlScript().isEmpty()) {
             parseDDL(request.getDdlScript(), schema);
         }
@@ -199,8 +215,10 @@ public class SchemaManagementService {
 
     @Transactional
     public SchemaResponse getSchema(Long schemaId) {
-        SchemaDefinition schema = schemaRepository.findByIdWithFullDetails(schemaId)
-                .orElseThrow(() -> new ResourceNotFoundException("Schema", "id", schemaId));
+      SchemaDefinition schema = schemaRepository
+        .findByIdWithTables(schemaId)
+        .orElseThrow(() ->
+            new ResourceNotFoundException("Schema", "id", schemaId));
         return mapToResponse(schema);
     }
 
@@ -208,7 +226,7 @@ public class SchemaManagementService {
     public List<SchemaResponse> getSchemasByProject(Long projectId) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Project", "id", projectId));
-        
+
         return schemaRepository.findByProject(project).stream()
                 .map(this::mapToResponse)
                 .toList();
@@ -224,7 +242,6 @@ public class SchemaManagementService {
 
         Project project = schema.getProject();
 
-        // Check if user is owner or editor member
         boolean isOwner = project.getOwner().getId().equals(user.getId());
         if (!isOwner) {
             ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(project.getId(), user.getId())
@@ -247,7 +264,6 @@ public class SchemaManagementService {
 
         Project project = schema.getProject();
 
-        // Check if user is owner or editor member
         boolean isOwner = project.getOwner().getId().equals(user.getId());
         if (!isOwner) {
             ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(project.getId(), user.getId())
@@ -255,10 +271,6 @@ public class SchemaManagementService {
             if (member.getRole().name().equals("VIEWER")) {
                 throw new BadRequestException("Only editor/owner can add tables");
             }
-        }
-
-        if (!schema.getProject().getOwner().getFullName().equals(username)) {
-            throw new BadRequestException("You don't have permission to modify this schema");
         }
 
         if (tableRepository.existsBySchemaAndTableName(schema, request.getTableName())) {
@@ -272,7 +284,6 @@ public class SchemaManagementService {
                 .description(request.getDescription())
                 .build();
 
-        // Add columns
         if (request.getColumns() != null) {
             for (TableCreateRequest.ColumnRequest col : request.getColumns()) {
                 ColumnDefinition column = ColumnDefinition.builder()
@@ -289,7 +300,6 @@ public class SchemaManagementService {
             }
         }
 
-        // Add indexes
         if (request.getIndexes() != null) {
             for (TableCreateRequest.IndexRequest idx : request.getIndexes()) {
                 IndexDefinition index = IndexDefinition.builder()
@@ -310,7 +320,6 @@ public class SchemaManagementService {
     }
 
     private void parseDDL(String ddlScript, SchemaDefinition schema) {
-        // Simple DDL parser for CREATE TABLE statements
         Pattern createTablePattern = Pattern.compile(
                 "CREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?([\\w.]+)\\s*\\(([^;]+)\\)",
                 Pattern.CASE_INSENSITIVE | Pattern.DOTALL
@@ -327,7 +336,6 @@ public class SchemaManagementService {
                     .indexes(new ArrayList<>())
                     .build();
 
-            // Parse columns
             String[] parts = columnsStr.split(",(?![^()]*\\))");
             for (String part : parts) {
                 part = part.trim();
@@ -368,6 +376,9 @@ public class SchemaManagementService {
                 .name(schema.getName())
                 .dialect(schema.getDialect())
                 .projectId(schema.getProject().getId())
+                .source(schema.getSource() != null ? schema.getSource().name() : "MANUAL")
+                .dbConnectionId(schema.getDbConnection() != null ? schema.getDbConnection().getId() : null)
+                .lastSyncedAt(schema.getDbConnection() != null ? schema.getDbConnection().getLastSyncedAt() : null)
                 .tables(schema.getTables().stream()
                         .map(this::mapTableToResponse)
                         .toList())
