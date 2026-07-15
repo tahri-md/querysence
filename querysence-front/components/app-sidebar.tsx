@@ -5,6 +5,7 @@ import {
   History,
   LayoutDashboard,
   LogOut,
+  Plug,
   Search,
   Settings,
   Shield,
@@ -59,6 +60,11 @@ const dataNavItems = [
     icon: Database,
   },
   {
+    title: "Connections",
+    url: "/connections",
+    icon: Plug,
+  },
+  {
     title: "History",
     url: "/history",
     icon: History,
@@ -70,11 +76,11 @@ export function AppSidebar() {
   const { user, logout } = useAuth()
 
   return (
-    <Sidebar>
+    <Sidebar className="w-60 border-r border-border font-mono bg-background">
       <SidebarHeader className="border-b border-border px-4 py-4">
         <Link href="/dashboard" className="flex items-center gap-2">
           <Terminal className="h-6 w-6" />
-          <span className="text-lg font-semibold">QuerySense</span>
+          <span className="text-lg font-black">QuerySense</span>
         </Link>
       </SidebarHeader>
       <SidebarContent>
