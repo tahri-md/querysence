@@ -10,10 +10,11 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class QueryAnalysisRequest {
-    
+
     private String sql;
-    
+
     private Long schemaId;
     private Long projectId;
     private Long executionTimeMs;
+    private Long dbConnectionId;
 }
