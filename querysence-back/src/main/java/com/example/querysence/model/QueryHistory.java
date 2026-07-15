@@ -3,13 +3,11 @@ package com.example.querysence.model;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import org.hibernate.annotations.CreationTimestamp;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -46,6 +44,14 @@ public class QueryHistory {
     @JoinColumn(name = "project_id")
     private Project project;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "db_connection_id")
+    private DbConnection dbConnection;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "schema_id")
+    private SchemaDefinition schema;
+
     @Column(name = "query_text", nullable = false, columnDefinition = "TEXT")
     private String queryText;
 
@@ -68,6 +74,9 @@ public class QueryHistory {
     @OneToMany(mappedBy = "queryHistory", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<SecurityFinding> securityFindings = new ArrayList<>();
+
+    @OneToOne(mappedBy = "queryHistory", cascade = CascadeType.ALL, orphanRemoval = true)
+    private ExecutionPlan executionPlan;
 
     @CreatedDate
     @Column(name = "analyzed_at", updatable = false)
