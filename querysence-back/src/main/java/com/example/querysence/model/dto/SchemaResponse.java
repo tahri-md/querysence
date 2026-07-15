@@ -13,11 +13,16 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class SchemaResponse {
-    
+
     private Long id;
     private String name;
     private String dialect;
     private Long projectId;
+
+    private String source;          // "MANUAL" or "SYNCED"
+    private Long dbConnectionId;    // null when source = "MANUAL"
+    private LocalDateTime lastSyncedAt; // null when source = "MANUAL"
+
     private List<TableResponse> tables;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
