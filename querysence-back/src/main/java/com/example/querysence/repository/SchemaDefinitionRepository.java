@@ -21,10 +21,9 @@ public interface SchemaDefinitionRepository extends JpaRepository<SchemaDefiniti
 
     List<SchemaDefinition> findByDialect(String dialect);
 
-      @Query("SELECT s FROM SchemaDefinition s " +
+    @Query("SELECT s FROM SchemaDefinition s " +
            "LEFT JOIN FETCH s.tables t " +
            "LEFT JOIN FETCH t.columns " +
-           "LEFT JOIN FETCH t.indexes " +
            "WHERE s.id = :id")
     Optional<SchemaDefinition> findByIdWithFullDetails(Long id);
 

@@ -5,12 +5,11 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.example.querysence.model.SchemaDefinition;
 import com.example.querysence.model.TableDefinition;
-
-import io.lettuce.core.dynamic.annotation.Param;
 
 @Repository
 public interface TableDefinitionRepository extends JpaRepository<TableDefinition, Long> {
@@ -31,7 +30,6 @@ public interface TableDefinitionRepository extends JpaRepository<TableDefinition
     
     @Query("SELECT t FROM TableDefinition t " +
            "LEFT JOIN FETCH t.columns " +
-           "LEFT JOIN FETCH t.indexes " +
            "WHERE t.id = :id")
     Optional<TableDefinition> findByIdWithDetails(Long id);
     
