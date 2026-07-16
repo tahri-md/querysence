@@ -32,21 +32,24 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/querysence
       SPRING_DATASOURCE_USERNAME: amine
       SPRING_DATASOURCE_PASSWORD: amine
+      DB_CONNECTION_ENCRYPTION_KEY: Pim+0qm/OPIvub88KQ2VIUKUimorRxedU51o36w90yk= 
     ports:
-      - "8081:8081"
+      - "8082:8081"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
-  frontend:
-    build:
-      context: ./querysence-front
-      dockerfile: Dockerfile
-    container_name: querysence-frontend
-    restart: unless-stopped
-    depends_on:
-      - backend
-    environment:
-      NEXT_PUBLIC_API_URL: http://localhost:8081
-    ports:
-      - "3000:3000"
+  # frontend:
+  #   build:
+  #     context: ./querysence-front
+  #     dockerfile: Dockerfile
+  #   container_name: querysence-frontend
+  #   restart: unless-stopped
+  #   depends_on:
+  #     - backend
+  #   environment:
+  #     NEXT_PUBLIC_API_URL: http://localhost:8082
+  #   ports:
+  #     - "3000:3000"
 
 volumes:
   pgdata:

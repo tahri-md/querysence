@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS projects (
     UNIQUE(owner_id, name)
 );
 
--- Schema definitions table
-CREATE TABLE IF NOT EXISTS schema_definition (
+-- Schema definitionss table
+CREATE TABLE IF NOT EXISTS schema_definitions (
     id BIGSERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     dialect VARCHAR(50) NOT NULL,
@@ -36,8 +36,8 @@ CREATE TABLE IF NOT EXISTS schema_definition (
     FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 );
 
--- Table definitions table
-CREATE TABLE IF NOT EXISTS table_definition (
+-- Table definitionss table
+CREATE TABLE IF NOT EXISTS table_definitions (
     id BIGSERIAL PRIMARY KEY,
     table_name VARCHAR(100) NOT NULL,
     estimated_rows BIGINT DEFAULT 0,
@@ -45,28 +45,28 @@ CREATE TABLE IF NOT EXISTS table_definition (
     schema_id BIGINT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (schema_id) REFERENCES schema_definition(id) ON DELETE CASCADE
+    FOREIGN KEY (schema_id) REFERENCES schema_definitions(id) ON DELETE CASCADE
 );
 
--- Column definitions table
-CREATE TABLE IF NOT EXISTS column_definition (
+-- Column definitionss table
+CREATE TABLE IF NOT EXISTS column_definitions (
     id BIGSERIAL PRIMARY KEY,
     column_name VARCHAR(100) NOT NULL,
     data_type VARCHAR(100) NOT NULL,
     is_nullable BOOLEAN DEFAULT true,
     table_id BIGINT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (table_id) REFERENCES table_definition(id) ON DELETE CASCADE
+    FOREIGN KEY (table_id) REFERENCES table_definitions(id) ON DELETE CASCADE
 );
 
--- Index definitions table
-CREATE TABLE IF NOT EXISTS index_definition (
+-- Index definitionss table
+CREATE TABLE IF NOT EXISTS index_definitions (
     id BIGSERIAL PRIMARY KEY,
     index_name VARCHAR(100) NOT NULL,
-    column_names TEXT NOT NULL,
+    columns TEXT NOT NULL,
     table_id BIGINT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (table_id) REFERENCES table_definition(id) ON DELETE CASCADE
+    FOREIGN KEY (table_id) REFERENCES table_definitions(id) ON DELETE CASCADE
 );
 
 -- Query history table

@@ -5,8 +5,6 @@ import java.util.Map;
 
 import javax.validation.Valid;
 
-import org.apache.catalina.connector.Response;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -18,39 +16,32 @@ import com.example.querysence.model.ProjectRole;
 import com.example.querysence.model.dto.AcceptInviteRequest;
 import com.example.querysence.model.dto.CreateInviteRequest;
 import com.example.querysence.model.dto.ProjectCreateRequest;
-import com.example.querysence.model.dto.ProjectDto;
 import com.example.querysence.model.dto.ProjectInviteDto;
 import com.example.querysence.model.dto.ProjectMemberDto;
-import com.example.querysence.model.dto.ProjectRequest;
 import com.example.querysence.model.dto.ProjectResponse;
-import com.example.querysence.model.dto.SchemaDefinitionDto;
-import com.example.querysence.model.dto.SchemaDefinitionRequest;
 import com.example.querysence.service.ProjectCollaborationService;
 import com.example.querysence.service.SchemaManagementService;
 
 import io.swagger.v3.oas.annotations.Operation;
+import lombok.RequiredArgsConstructor;
 
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 
-
-
 @RestController
 @RequestMapping("/projects")
+@RequiredArgsConstructor
 public class ProjectController {
-    @Autowired
-    SchemaManagementService smService;
+    private final SchemaManagementService smService;
 
-    @Autowired
-    ProjectCollaborationService collaborationService;
+    private final ProjectCollaborationService collaborationService;
 
-        @PostMapping
+    @PostMapping
     @Operation(summary = "Create a new project")
     public ResponseEntity<ProjectResponse> createProject(
             @Valid @RequestBody ProjectCreateRequest request,
@@ -141,7 +132,4 @@ public class ProjectController {
         return ResponseEntity.ok(collaborationService.getProjectInvites(projectId, auth));
     }
 
-    
-   
-    
 }

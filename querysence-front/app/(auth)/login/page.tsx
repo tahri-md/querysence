@@ -81,7 +81,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center p-4">
+    <div className="flex min-h-screen flex-col items-center font-mono justify-center p-4">
       <div className="absolute right-4 top-4">
         <ThemeToggle />
       </div>
@@ -124,7 +124,7 @@ export default function LoginPage() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4 py-4">
-            <Button type="submit" className="w-full" disabled={isLoading || isOAuthLoading !== null}>
+            <Button size="lg" type="submit" className="w-full" disabled={isLoading || isOAuthLoading !== null}>
               {isLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {isLoading ? "Signing in..." : "Sign in"}
             </Button>
