@@ -45,7 +45,6 @@ public class JwtService {
                 .compact();
     }
 
-    // Legacy method for backward compatibility
     public String generateToken(String email) {
         return generateAccessToken(email);
     }

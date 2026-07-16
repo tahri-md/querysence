@@ -29,7 +29,6 @@ public class ProjectCollaborationService {
     @Autowired
     private UserRepository userRepository;
 
-    // Get list of project members
     public List<ProjectMemberDto> getProjectMembers(Long projectId) {
         List<ProjectMember> members = projectMemberRepository.findByProjectId(projectId);
         return members.stream()
@@ -44,7 +43,6 @@ public class ProjectCollaborationService {
             .collect(Collectors.toList());
     }
 
-    // Create an invite link
     public ProjectInviteDto createInvite(Long projectId, CreateInviteRequest request, Authentication auth) {
         Project project = projectRepository.findById(projectId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
@@ -52,7 +50,6 @@ public class ProjectCollaborationService {
         User currentUser = userRepository.findByEmail(auth.getName())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
-        // Check permission: only owner/editor can invite
         ProjectMember currentMember = projectMemberRepository.findByProjectIdAndUserId(projectId, currentUser.getId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not a member of this project"));
 
@@ -60,7 +57,6 @@ public class ProjectCollaborationService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only owner/editor can invite members");
         }
 
-        // Check if invite already exists for this email
         List<ProjectInvite> existingInvites = projectInviteRepository.findByEmailAndIsUsedFalse(request.getEmail());
         for (ProjectInvite invite : existingInvites) {
             if (invite.getProject().getId().equals(projectId) && !invite.getIsUsed()) {
@@ -68,7 +64,6 @@ public class ProjectCollaborationService {
             }
         }
 
-        // Check if user is already a member
         User invitedUser = userRepository.findByEmail(request.getEmail()).orElse(null);
         if (invitedUser != null) {
             projectMemberRepository.findByProjectIdAndUserId(projectId, invitedUser.getId())
@@ -77,7 +72,6 @@ public class ProjectCollaborationService {
                 });
         }
 
-        // Create invite
         ProjectInvite invite = ProjectInvite.builder()
             .project(project)
             .email(request.getEmail())
@@ -102,7 +96,6 @@ public class ProjectCollaborationService {
             .build();
     }
 
-    // Accept an invite
     public ProjectMemberDto acceptInvite(String inviteCode, Authentication auth) {
         ProjectInvite invite = projectInviteRepository.findByInviteCode(inviteCode)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Invite not found"));
@@ -122,13 +115,11 @@ public class ProjectCollaborationService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "This invite is not for your email");
         }
 
-        // Check if user is already a member
         projectMemberRepository.findByProjectIdAndUserId(invite.getProject().getId(), currentUser.getId())
             .ifPresent(m -> {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You are already a member of this project");
             });
 
-        // Add user to project
         ProjectMember member = ProjectMember.builder()
             .project(invite.getProject())
             .user(currentUser)
@@ -137,7 +128,6 @@ public class ProjectCollaborationService {
 
         projectMemberRepository.save(member);
 
-        // Mark invite as used
         invite.setIsUsed(true);
         invite.setAcceptedBy(currentUser);
         invite.setAcceptedAt(LocalDateTime.now());
@@ -153,7 +143,6 @@ public class ProjectCollaborationService {
             .build();
     }
 
-    // Update member role
     public ProjectMemberDto updateMemberRole(Long projectId, Long memberId, ProjectRole newRole, Authentication auth) {
         Project project = projectRepository.findById(projectId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
@@ -161,7 +150,6 @@ public class ProjectCollaborationService {
         User currentUser = userRepository.findByEmail(auth.getName())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
-        // Check permission
         ProjectMember currentMember = projectMemberRepository.findByProjectIdAndUserId(projectId, currentUser.getId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not a member of this project"));
 
@@ -189,7 +177,6 @@ public class ProjectCollaborationService {
             .build();
     }
 
-    // Remove member from project
     public void removeMember(Long projectId, Long memberId, Authentication auth) {
         Project project = projectRepository.findById(projectId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
@@ -197,7 +184,6 @@ public class ProjectCollaborationService {
         User currentUser = userRepository.findByEmail(auth.getName())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
-        // Check permission
         ProjectMember currentMember = projectMemberRepository.findByProjectIdAndUserId(projectId, currentUser.getId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not a member of this project"));
 
@@ -212,7 +198,6 @@ public class ProjectCollaborationService {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Member does not belong to this project");
         }
 
-        // Cannot remove owner
         if (member.getRole() == ProjectRole.OWNER) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Cannot remove project owner");
         }
@@ -220,7 +205,6 @@ public class ProjectCollaborationService {
         projectMemberRepository.deleteById(memberId);
     }
 
-    // Get project invites
     public List<ProjectInviteDto> getProjectInvites(Long projectId, Authentication auth) {
         Project project = projectRepository.findById(projectId)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Project not found"));
@@ -228,7 +212,6 @@ public class ProjectCollaborationService {
         User currentUser = userRepository.findByEmail(auth.getName())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "User not found"));
 
-        // Check permission
         ProjectMember currentMember = projectMemberRepository.findByProjectIdAndUserId(projectId, currentUser.getId())
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.FORBIDDEN, "You are not a member of this project"));
 
@@ -251,7 +234,6 @@ public class ProjectCollaborationService {
             .collect(Collectors.toList());
     }
 
-    // Get pending invites for a user by email
     public List<ProjectInviteDto> getPendingInvitesByEmail(String email) {
         List<ProjectInvite> invites = projectInviteRepository.findByEmailAndIsUsedFalse(email);
         return invites.stream()
