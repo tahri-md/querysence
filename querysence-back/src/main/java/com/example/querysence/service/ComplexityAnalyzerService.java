@@ -1,17 +1,29 @@
 package com.example.querysence.service;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import com.example.querysence.model.IndexDefinition;
+import com.example.querysence.model.TableDefinition;
 import com.example.querysence.model.dto.ComplexityReport;
 import com.example.querysence.parser.ParsedQuery;
+import com.example.querysence.repository.SchemaDefinitionRepository;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 @Slf4j
 public class ComplexityAnalyzerService {
+
+    private final SchemaDefinitionRepository schemaRepository;
 
     private static final int BASE_SCORE = 10;
     private static final int EXTRA_TABLE_POINTS = 3;
@@ -26,7 +38,18 @@ public class ComplexityAnalyzerService {
     private static final int EXTRA_WHERE_CONDITION_POINTS = 1;
     private static final int WHERE_THRESHOLD = 5;
 
+    private static final long LARGE_TABLE_ROWS = 100_000L;
+    private static final long HUGE_TABLE_ROWS = 1_000_000L;
+    private static final int LARGE_TABLE_POINTS = 5;
+    private static final int HUGE_TABLE_POINTS = 12;
+    private static final int UNINDEXED_FILTER_ON_LARGE_TABLE_POINTS = 10;
+
+
     public ComplexityReport analyze(ParsedQuery parsedQuery) {
+        return analyze(parsedQuery, null);
+    }
+
+    public ComplexityReport analyze(ParsedQuery parsedQuery, Long schemaId) {
         List<ComplexityReport.Factor> factors = new ArrayList<>();
         int score = BASE_SCORE;
 
@@ -145,6 +168,87 @@ public class ComplexityAnalyzerService {
                     .build());
         }
 
+        // Table volume: how big are the tables actually involved? Only meaningful if a
+        // schema was supplied - otherwise we only know table *names* from the SQL text,
+        // not their size, so this section (and its score contribution) is skipped.
+        List<String> tableSizeWarnings = new ArrayList<>();
+        if (schemaId != null) {
+            Map<String, Long> tableRowCounts = new HashMap<>();
+            Map<String, Set<String>> existingIndexes = new HashMap<>();
+            schemaRepository.findByIdWithFullDetails(schemaId).ifPresent(schema -> {
+                for (TableDefinition table : schema.getTables()) {
+                    String tableName = table.getTableName().toLowerCase();
+                    tableRowCounts.put(tableName, table.getEstimatedRows() == null ? 0L : table.getEstimatedRows());
+                    Set<String> indexedColumns = new HashSet<>();
+                    for (IndexDefinition index : table.getIndexes()) {
+                        indexedColumns.addAll(index.getColumns().stream()
+                                .map(String::toLowerCase)
+                                .collect(Collectors.toSet()));
+                    }
+                    existingIndexes.put(tableName, indexedColumns);
+                }
+            });
+
+            long largestTableRows = 0L;
+            String largestTableName = null;
+            int tableVolumeScore = 0;
+
+            for (String rawTableName : parsedQuery.getTables()) {
+                String tableName = rawTableName.toLowerCase();
+                Long rows = tableRowCounts.get(tableName);
+                if (rows == null) {
+                    // Table referenced in the query but not found in the selected schema -
+                    // could be a typo, a table outside this schema, or a stale schema
+                    // definition. Worth flagging rather than silently skipping.
+                    tableSizeWarnings.add("Table \"" + rawTableName
+                            + "\" was not found in the selected schema - complexity/index analysis for it is schema-blind");
+                    continue;
+                }
+                if (rows > largestTableRows) {
+                    largestTableRows = rows;
+                    largestTableName = tableName;
+                }
+                if (rows >= HUGE_TABLE_ROWS) {
+                    tableVolumeScore += HUGE_TABLE_POINTS;
+                } else if (rows >= LARGE_TABLE_ROWS) {
+                    tableVolumeScore += LARGE_TABLE_POINTS;
+                }
+            }
+
+            if (tableVolumeScore > 0 && largestTableName != null) {
+                score += tableVolumeScore;
+                factors.add(ComplexityReport.Factor.builder()
+                        .name("Table Volume")
+                        .count((int) Math.min(largestTableRows, Integer.MAX_VALUE))
+                        .points(tableVolumeScore)
+                        .description("Largest table involved (" + largestTableName + ") has ~" + largestTableRows
+                                + " estimated rows")
+                        .build());
+            }
+
+            // Filtering/joining on a large table without a matching index is the classic
+            // full-table-scan risk - surface it as both score and a warning.
+            Set<String> flaggedTables = new HashSet<>();
+            for (ParsedQuery.WhereCondition condition : parsedQuery.getWhereConditions()) {
+                String table = condition.getTable() == null ? "" : condition.getTable().toLowerCase();
+                if (table.isEmpty() && parsedQuery.getTables().size() == 1) {
+                    table = parsedQuery.getTables().get(0).toLowerCase();
+                }
+                if (table.isEmpty()) {
+                    continue;
+                }
+                Long rows = tableRowCounts.get(table);
+                Set<String> indexed = existingIndexes.getOrDefault(table, Set.of());
+                String column = condition.getColumn() == null ? "" : condition.getColumn().toLowerCase();
+                if (rows != null && rows >= LARGE_TABLE_ROWS && !indexed.contains(column)
+                        && flaggedTables.add(table)) {
+                    score += UNINDEXED_FILTER_ON_LARGE_TABLE_POINTS;
+                    tableSizeWarnings.add("Filtering on \"" + table + "\" (~" + rows
+                            + " rows) without a matching index - likely full table scan");
+                }
+            }
+        }
+
         // Cap at 100
         score = Math.min(score, 100);
 
@@ -153,6 +257,7 @@ public class ComplexityAnalyzerService {
 
         // Generate warnings based on complexity
         List<String> warnings = generateWarnings(parsedQuery, score);
+        warnings.addAll(tableSizeWarnings);
 
         return ComplexityReport.builder()
                 .score(score)

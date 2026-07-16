@@ -27,6 +27,7 @@ public interface QueryHistoryRepository extends JpaRepository<QueryHistory, Long
     @Query("SELECT qh FROM QueryHistory qh " +
            "LEFT JOIN FETCH qh.indexSuggestions " +
            "LEFT JOIN FETCH qh.securityFindings " +
+           "LEFT JOIN FETCH qh.schema " +
            "WHERE qh.id = :id")
     Optional<QueryHistory> findByIdWithDetails(Long id);
     
