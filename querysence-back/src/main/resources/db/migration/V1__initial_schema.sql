@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS column_definitions (
 CREATE TABLE IF NOT EXISTS index_definitions (
     id BIGSERIAL PRIMARY KEY,
     index_name VARCHAR(100) NOT NULL,
-    columns TEXT NOT NULL,
+    columns TEXT[] NOT NULL,
     table_id BIGINT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (table_id) REFERENCES table_definitions(id) ON DELETE CASCADE
