@@ -2,15 +2,17 @@ package com.example.querysence.service;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,7 @@ import com.example.querysence.model.SchemaSource;
 import com.example.querysence.model.SchemaSyncLog;
 import com.example.querysence.model.SyncStatus;
 import com.example.querysence.model.TableDefinition;
+import com.example.querysence.model.dto.ColumnsStatistics;
 import com.example.querysence.model.dto.SchemaSyncResponse;
 import com.example.querysence.repository.DbConnectionRepository;
 import com.example.querysence.repository.SchemaDefinitionRepository;
@@ -35,16 +38,11 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class SchemaIntrospectionService {
 
-    @Autowired
-    private DbConnectionRepository dbConnectionRepository;
-    @Autowired
-    private SchemaDefinitionRepository schemaRepository;
-    @Autowired
-    private SchemaSyncLogRepository syncLogRepository;
-    @Autowired
-    private DbConnectionService dbConnectionService;
+    private final DbConnectionRepository dbConnectionRepository;
+    private final SchemaDefinitionRepository schemaRepository;
+    private final SchemaSyncLogRepository syncLogRepository;
+    private final DbConnectionService dbConnectionService;
 
- 
     @Transactional
     public SchemaSyncResponse syncSchema(Long projectId, Long dbConnectionId, Long existingSchemaId, String username) {
         DbConnection connection = dbConnectionRepository.findByIdAndProjectId(dbConnectionId, projectId)
@@ -117,7 +115,6 @@ public class SchemaIntrospectionService {
         }
     }
 
-
     private int[] introspectInto(DbConnection connection, SchemaDefinition schema) throws SQLException {
         List<TableDefinition> tables = new ArrayList<>();
         int columnCount = 0;
@@ -129,7 +126,14 @@ public class SchemaIntrospectionService {
             String schemaPattern = conn.getSchema(); // e.g. "public" for Postgres
 
             List<String> tableNames = new ArrayList<>();
-            try (ResultSet rs = metaData.getTables(catalog, schemaPattern, "%", new String[]{"TABLE"})) {
+            List<ColumnsStatistics> columnStats = calculateColumnStatistics(conn, schema.getName());
+
+            Map<String, ColumnsStatistics> statsByKey = columnStats.stream()
+                    .collect(Collectors.toMap(
+                            s -> s.getTableName() + "." + s.getColumnName(),
+                            s -> s,
+                            (a, b) -> a));
+            try (ResultSet rs = metaData.getTables(catalog, schemaPattern, "%", new String[] { "TABLE" })) {
                 while (rs.next()) {
                     tableNames.add(rs.getString("TABLE_NAME"));
                 }
@@ -152,6 +156,8 @@ public class SchemaIntrospectionService {
                 try (ResultSet colRs = metaData.getColumns(catalog, schemaPattern, tableName, "%")) {
                     while (colRs.next()) {
                         String columnName = colRs.getString("COLUMN_NAME");
+                        ColumnsStatistics stat = statsByKey.get(tableName + "." + columnName);
+
                         ColumnDefinition column = ColumnDefinition.builder()
                                 .table(table)
                                 .columnName(columnName)
@@ -159,7 +165,12 @@ public class SchemaIntrospectionService {
                                 .isNullable(colRs.getInt("NULLABLE") != DatabaseMetaData.columnNoNulls)
                                 .isPrimaryKey(primaryKeyColumns.contains(columnName))
                                 .isForeignKey(false)
+                                .distinctCount(stat != null ? stat.getDistinctCount() : null)
+                                .nullFraction(stat != null ? stat.getNullFraction() : null)
+                                .statsUpdatedAt(stat != null ? LocalDateTime.now() : null)
                                 .build();
+                        statsByKey.values().stream().filter(e->e.getTableName().equals(tableName)).findFirst().ifPresent(s->table.setEstimatedRows(s.getRowCount()));
+
                         table.getColumns().add(column);
                         columnCount++;
                     }
@@ -197,14 +208,14 @@ public class SchemaIntrospectionService {
                                 .ifPresentOrElse(
                                         existing -> existing.getColumns().add(columnName),
                                         () -> {
-                                            com.example.querysence.model.IndexDefinition newIndex =
-                                                    com.example.querysence.model.IndexDefinition.builder()
-                                                            .table(table)
-                                                            .indexName(indexName)
-                                                            .columns(new ArrayList<>(List.of(columnName)))
-                                                            .isUnique(!nonUnique)
-                                                            .indexType("BTREE")
-                                                            .build();
+                                            com.example.querysence.model.IndexDefinition newIndex = com.example.querysence.model.IndexDefinition
+                                                    .builder()
+                                                    .table(table)
+                                                    .indexName(indexName)
+                                                    .columns(new ArrayList<>(List.of(columnName)))
+                                                    .isUnique(!nonUnique)
+                                                    .indexType("BTREE")
+                                                    .build();
                                             table.getIndexes().add(newIndex);
                                         });
                     }
@@ -218,6 +229,75 @@ public class SchemaIntrospectionService {
         schema.getTables().clear();
         schema.getTables().addAll(tables);
 
-        return new int[]{tables.size(), columnCount, indexCount};
+        return new int[] { tables.size(), columnCount, indexCount };
     }
+
+    private List<ColumnsStatistics> calculateColumnStatistics(
+            Connection conn,
+            String schemaName) throws SQLException {
+
+        String sql = """
+                SELECT
+                    s.schemaname,
+                    s.tablename,
+                    s.attname,
+                    c.reltuples::bigint AS row_count,
+                    s.n_distinct,
+                    s.null_frac
+                FROM pg_stats s
+                JOIN pg_class c
+                    ON c.relname = s.tablename
+                JOIN pg_namespace n
+                    ON n.oid = c.relnamespace
+                    AND n.nspname = s.schemaname
+                WHERE s.schemaname = ?
+                """;
+
+        List<ColumnsStatistics> statsList = new ArrayList<>();
+
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+
+            stmt.setString(1, schemaName);
+
+            try (ResultSet rs = stmt.executeQuery()) {
+
+                while (rs.next()) {
+
+                    String tableName = rs.getString("tablename");
+                    String columnName = rs.getString("attname");
+
+                    long rowCount = rs.getLong("row_count");
+
+                    double nDistinct = rs.getDouble("n_distinct");
+
+                    double distinctCount = resolveDistinctCount(nDistinct, rowCount);
+
+                    double nullFraction = rs.getDouble("null_frac");
+
+                    ColumnsStatistics stats = ColumnsStatistics.builder()
+                            .tableName(tableName)
+                            .columnName(columnName)
+                            .rowCount(rowCount)
+                            .distinctCount(distinctCount)
+                            .nullFraction(nullFraction)
+                            .build();
+
+                    statsList.add(stats);
+                }
+            }
+        }
+
+        return statsList;
+    }
+
+    private double resolveDistinctCount(
+            double nDistinct,
+            long rowCount) {
+        if (nDistinct >= 0) {
+            return nDistinct;
+        }
+
+        return Math.abs(nDistinct) * rowCount;
+    }
+
 }
