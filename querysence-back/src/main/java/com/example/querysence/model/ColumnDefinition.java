@@ -49,6 +49,15 @@ public class ColumnDefinition {
     @Column(name = "references_column", length = 100)
     private String referencesColumn;
 
+    @Column(name = "distinct_count")
+    private Double distinctCount;
+
+    @Column(name = "null_fraction")
+    private Double nullFraction;
+
+    @Column(name = "stats_updated_at")
+    private LocalDateTime statsUpdatedAt;
+
     @CreationTimestamp
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

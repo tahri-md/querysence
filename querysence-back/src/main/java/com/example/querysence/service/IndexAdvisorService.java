@@ -5,10 +5,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import com.example.querysence.model.ColumnDefinition;
 import com.example.querysence.model.IndexDefinition;
 import com.example.querysence.model.TableDefinition;
 import com.example.querysence.model.dto.IndexSuggestionResponse;
 import com.example.querysence.parser.ParsedQuery;
+import com.example.querysence.repository.ColumnDefinitionRepository;
 import com.example.querysence.repository.SchemaDefinitionRepository;
 
 import java.util.*;
@@ -20,10 +22,12 @@ import java.util.stream.Collectors;
 public class IndexAdvisorService {
 
     private final SchemaDefinitionRepository schemaRepository;
+    private final ColumnDefinitionRepository columnDefinitionRepository;
 
     public List<IndexSuggestionResponse> suggestIndexes(ParsedQuery parsedQuery, Long schemaId) {
         Map<String, Set<String>> existingIndexes = new HashMap<>();
         Map<String, Long> tableRowCounts = new HashMap<>();
+        Map<String, Map<String, Double>> distinctCountsByTable = new HashMap<>();
 
         // Load existing indexes from schema if provided
         if (schemaId != null) {
@@ -31,7 +35,12 @@ public class IndexAdvisorService {
                 for (TableDefinition table : schema.getTables()) {
                     String tableName = table.getTableName().toLowerCase();
                     tableRowCounts.put(tableName, table.getEstimatedRows());
-                    
+                    for (ColumnDefinition column : table.getColumns()) {
+                        distinctCountsByTable
+                                .computeIfAbsent(tableName, k -> new HashMap<>())
+                                .put(column.getColumnName().toLowerCase(), column.getDistinctCount());
+                    }
+
                     Set<String> indexedColumns = new HashSet<>();
                     for (IndexDefinition index : table.getIndexes()) {
                         indexedColumns.addAll(index.getColumns().stream()
@@ -99,6 +108,7 @@ public class IndexAdvisorService {
             Set<String> existing = existingIndexes.getOrDefault(table, Collections.emptySet());
             Long rowCount = tableRowCounts.getOrDefault(table, 0L);
 
+
             // Check for composite index opportunity (WHERE + JOIN)
             Set<String> whereCols = whereColumnsByTable.getOrDefault(table, Collections.emptySet());
             Set<String> joinCols = joinColumnsByTable.getOrDefault(table, Collections.emptySet());
@@ -112,7 +122,10 @@ public class IndexAdvisorService {
             combinedCols.removeAll(existing);
             
             if (combinedCols.size() >= 2) {
-                String impact = calculateImpact(rowCount, true, joinCols.size() > 0);
+                                String column = combinedCols.iterator().next();
+                  Double distinctCount = distinctCountsByTable.getOrDefault(table, Collections.emptyMap())
+                        .get(column);
+                String impact = calculateImpact(rowCount, distinctCount,true, joinCols.size() > 0);
                 suggestions.add(createSuggestion(
                         table, 
                         new ArrayList<>(combinedCols), 
@@ -122,7 +135,9 @@ public class IndexAdvisorService {
                 ));
             } else if (combinedCols.size() == 1) {
                 String column = combinedCols.iterator().next();
-                String impact = calculateImpact(rowCount, whereCols.contains(column), joinCols.contains(column));
+                  Double distinctCount = distinctCountsByTable.getOrDefault(table, Collections.emptyMap())
+                        .get(column);
+                String impact = calculateImpact(rowCount,distinctCount, whereCols.contains(column), joinCols.contains(column));
                 String reason = joinCols.contains(column) ? "Used in JOIN condition" : "Used in WHERE clause";
                 suggestions.add(createSuggestion(
                         table, 
@@ -167,18 +182,29 @@ public class IndexAdvisorService {
         return suggestions;
     }
 
-    private String calculateImpact(Long rowCount, boolean inWhere, boolean inJoin) {
-        if (inJoin && inWhere) {
-            return "HIGH";
-        }
-        if (inJoin || (inWhere && rowCount > 10000)) {
-            return "HIGH";
-        }
-        if (inWhere && rowCount > 1000) {
-            return "MEDIUM";
-        }
+private String calculateImpact(Long rowCount, Double distinctCount, boolean inWhere, boolean inJoin) {
+    double selectivity = (distinctCount != null && rowCount != null && rowCount > 0)
+            ? distinctCount / rowCount
+            : 1.0;
+
+    if (selectivity < 0.01 && !inJoin) {
         return "LOW";
     }
+
+    if (inJoin && inWhere) {
+        return "HIGH";
+    }
+
+    if (inJoin || (inWhere && rowCount != null && rowCount > 10000)) {
+        return "HIGH";
+    }
+
+    if (inWhere && rowCount != null && rowCount > 1000) {
+        return "MEDIUM";
+    }
+
+    return "LOW";
+}
 
     private IndexSuggestionResponse createSuggestion(String table, List<String> columns, 
                                                       String type, String impact, String reasoning) {
