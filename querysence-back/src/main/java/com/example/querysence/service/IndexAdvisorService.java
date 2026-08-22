@@ -9,7 +9,6 @@ import com.example.querysence.model.IndexDefinition;
 import com.example.querysence.model.TableDefinition;
 import com.example.querysence.model.dto.IndexSuggestionResponse;
 import com.example.querysence.parser.ParsedQuery;
-import com.example.querysence.repository.ColumnDefinitionRepository;
 import com.example.querysence.repository.SchemaDefinitionRepository;
 
 import java.util.*;
@@ -21,13 +20,12 @@ import java.util.stream.Collectors;
 public class IndexAdvisorService {
 
     private final SchemaDefinitionRepository schemaRepository;
-    private final ColumnDefinitionRepository columnDefinitionRepository;
 
     private static final int MAX_COMPOSITE_WIDTH = 4;
     private static final Set<String> RANGE_OPERATORS = Set.of(">", "<", ">=", "<=", "BETWEEN", "LIKE");
 
     public List<IndexSuggestionResponse> suggestIndexes(ParsedQuery parsedQuery, Long schemaId) {
-        Map<String, Set<String>> existingIndexes = new HashMap<>();
+        Map<String, List<List<String>>> existingIndexColumnLists = new HashMap<>();
         Map<String, Long> tableRowCounts = new HashMap<>();
         Map<String, Map<String, Double>> distinctCountsByTable = new HashMap<>();
 
@@ -43,13 +41,13 @@ public class IndexAdvisorService {
                                 .put(column.getColumnName().toLowerCase(), column.getDistinctCount());
                     }
 
-                    Set<String> indexedColumns = new HashSet<>();
+                    List<List<String>> indexlists = new ArrayList<>();
                     for (IndexDefinition index : table.getIndexes()) {
-                        indexedColumns.addAll(index.getColumns().stream()
+                        indexlists.add(index.getColumns().stream()
                                 .map(String::toLowerCase)
-                                .collect(Collectors.toSet()));
+                                .collect(Collectors.toList()));
                     }
-                    existingIndexes.put(tableName, indexedColumns);
+                    existingIndexColumnLists.put(tableName, indexlists);
                 }
             });
         }
@@ -60,7 +58,7 @@ public class IndexAdvisorService {
         Map<String, Set<String>> rangeColumnsByTable = new HashMap<>();
         // Analyze WHERE clause columns
         for (ParsedQuery.WhereCondition condition : parsedQuery.getWhereConditions()) {
-            String table = condition.getTable().toLowerCase();
+            String table = condition.getTable() == null ? "" : condition.getTable().toLowerCase();
             String column = condition.getColumn().toLowerCase();
 
             if (table.isEmpty() && parsedQuery.getTables().size() == 1) {
@@ -84,7 +82,11 @@ public class IndexAdvisorService {
         // Analyze JOIN columns
         Map<String, Set<String>> joinColumnsByTable = new HashMap<>();
         for (ParsedQuery.JoinInfo join : parsedQuery.getJoins()) {
-            String table = join.getTable().toLowerCase();
+            String table = join.getTable() == null ? "" : join.getTable().toLowerCase();
+            if (table.isEmpty()) {
+                log.warn("Could not determine table for JOIN: {}", join);
+                continue;
+            }
             for (String col : join.getJoinColumns()) {
                 joinColumnsByTable.computeIfAbsent(table, k -> new LinkedHashSet<>()).add(col.toLowerCase());
             }
@@ -118,7 +120,7 @@ public class IndexAdvisorService {
         allTables.addAll(groupByColumnsByTable.keySet());
 
         for (String table : allTables) {
-            Set<String> existing = existingIndexes.getOrDefault(table, Collections.emptySet());
+            List<List<String>> existing = existingIndexColumnLists.getOrDefault(table, Collections.emptyList());
             Long rowCount = tableRowCounts.getOrDefault(table, 0L);
 
             Map<String, Double> distinctCounts = distinctCountsByTable.getOrDefault(table, Collections.emptyMap());
@@ -132,7 +134,7 @@ public class IndexAdvisorService {
                     joinCols, equalityCols, rangeCols, orderCols, existing, distinctCounts, rowCount);
 
             if (!composite.isEmpty()) {
-                boolean hasRange = composite.stream().anyMatch(rangeCols::contains);
+                // boolean hasRange = composite.stream().anyMatch(rangeCols::contains);
                 String impact = calculateImpact(
                         rowCount,
                         distinctCounts.get(composite.get(0)),
@@ -144,7 +146,7 @@ public class IndexAdvisorService {
             }
             List<String> uncoveredGroupCols = groupCols.stream()
                     .filter(c -> !composite.contains(c))
-                    .filter(c -> !existing.contains(c))
+                    .filter(c -> !isLeadingColumnOfAnyIndex(c, existing))
                     .sorted(bySelectivityDesc(distinctCounts, rowCount))
                     .limit(MAX_COMPOSITE_WIDTH)
                     .collect(Collectors.toList());
@@ -158,19 +160,29 @@ public class IndexAdvisorService {
         return suggestions;
     }
 
+    private boolean isLeadingColumnOfAnyIndex(String column, List<List<String>> indexLists) {
+        return indexLists.stream()
+                .anyMatch(cols -> !cols.isEmpty() && cols.get(0).equals(column));
+    }
+
+    private boolean isCompositeConveredByExistingIndex(List<String> candidate, List<List<String>> indexLists) {
+        return indexLists.stream()
+                .anyMatch(existing -> existing.size() >= candidate.size() &&
+                        existing.subList(0, candidate.size()).equals(candidate));
+    }
+
     private List<String> buildCompositeColumns(
             Set<String> joinCols,
             Set<String> equalityCols,
             Set<String> rangeCols,
             Set<String> orderCols,
-            Set<String> existing,
-            Map<String, Double> distinctCounts,
+            List<List<String>> indexLists, Map<String, Double> distinctCounts,
             Long rowCount) {
 
         LinkedHashSet<String> equalityLike = new LinkedHashSet<>();
         equalityLike.addAll(joinCols);
         equalityLike.addAll(equalityCols);
-        equalityLike.removeAll(existing);
+        equalityLike.removeIf(col -> isLeadingColumnOfAnyIndex(col, indexLists));
 
         List<String> sortedColumns = equalityLike.stream()
                 .sorted(bySelectivityDesc(distinctCounts, rowCount))
@@ -186,7 +198,7 @@ public class IndexAdvisorService {
         }
         if (ordered.size() < MAX_COMPOSITE_WIDTH) {
             rangeCols.stream()
-                    .filter(c -> !existing.contains(c) && !ordered.contains(c))
+                    .filter(c -> !isLeadingColumnOfAnyIndex(c, indexLists) && !ordered.contains(c))
                     .findFirst()
                     .ifPresent(ordered::add);
         }
@@ -194,9 +206,13 @@ public class IndexAdvisorService {
             if (ordered.size() >= MAX_COMPOSITE_WIDTH) {
                 break;
             }
-            if (!existing.contains(col) && !ordered.contains(col)) {
+            if (!isLeadingColumnOfAnyIndex(col, indexLists) && !ordered.contains(col)) {
                 ordered.add(col);
             }
+        }
+
+        if (ordered.isEmpty() || isCompositeConveredByExistingIndex(ordered, indexLists)) {
+            return Collections.emptyList();
         }
 
         return ordered;
