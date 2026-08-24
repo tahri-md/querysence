@@ -9,7 +9,6 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.example.querysence.exception.BadRequestException;
@@ -27,8 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class QueryExecutionPlanService {
 
-    @Autowired
-    private DbConnectionService dbConnectionService;
+    private final DbConnectionService dbConnectionService;
 
     private static final Pattern PG_COST_PATTERN =
             Pattern.compile("cost=[\\d.]+\\.\\.([\\d.]+)\\s+rows=(\\d+)");

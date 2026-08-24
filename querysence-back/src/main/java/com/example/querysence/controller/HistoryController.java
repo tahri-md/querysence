@@ -5,8 +5,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.oauth2.jwt.Jwt;
 
 import com.example.querysence.model.dto.AnalyticsResponse;
 import com.example.querysence.model.dto.QueryHistoryResponse;
@@ -25,29 +25,29 @@ public class HistoryController {
             @RequestParam(required = false) Long projectId,
             @RequestParam(required = false) LocalDateTime startDate,
             @RequestParam(required = false) LocalDateTime endDate,
-            @AuthenticationPrincipal UserDetails userDetails,
+            @AuthenticationPrincipal Jwt jwt,
             Pageable pageable) {
         return ResponseEntity.ok(historyService.getHistory(
-                userDetails.getUsername(), projectId, startDate, endDate, pageable));
+                jwt.getSubject(), projectId, startDate, endDate, pageable));
     }
 
     @GetMapping("/history/{id}")
     public ResponseEntity<QueryHistoryResponse> getHistoryEntry(
             @PathVariable Long id,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(historyService.getById(id, userDetails.getUsername()));
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(historyService.getById(id, jwt.getSubject()));
     }
 
     @GetMapping("/analytics/overview")
     public ResponseEntity<AnalyticsResponse> getAnalytics(
-            @AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(historyService.getAnalytics(userDetails.getUsername()));
+            @AuthenticationPrincipal Jwt jwt) {
+        return ResponseEntity.ok(historyService.getAnalytics(jwt.getSubject()));
     }
 
     @GetMapping("/analytics/slow-queries")
     public ResponseEntity<Page<QueryHistoryResponse>> getSlowQueries(
-            @AuthenticationPrincipal UserDetails userDetails,
+            @AuthenticationPrincipal Jwt jwt,
             Pageable pageable) {
-        return ResponseEntity.ok(historyService.getSlowQueries(userDetails.getUsername(), pageable));
+        return ResponseEntity.ok(historyService.getSlowQueries(jwt.getSubject(), pageable));
     }
 }

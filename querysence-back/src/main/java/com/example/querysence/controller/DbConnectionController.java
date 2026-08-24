@@ -8,7 +8,7 @@ import javax.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,17 +41,33 @@ public class DbConnectionController {
     public ResponseEntity<DbConnectionDto> createConnection(
             @PathVariable Long projectId,
             @Valid @RequestBody DbConnectionRequest request,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(dbConnectionService.create(projectId, request, userDetails.getUsername()));
+            @AuthenticationPrincipal Jwt jwt) {
+
+        String keycloakUserId = jwt.getSubject();
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(dbConnectionService.create(
+                        projectId,
+                        request,
+                        keycloakUserId
+                ));
     }
 
     @GetMapping
     @Operation(summary = "List database connections for a project")
     public ResponseEntity<List<DbConnectionDto>> listConnections(
             @PathVariable Long projectId,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(dbConnectionService.listByProject(projectId, userDetails.getUsername()));
+            @AuthenticationPrincipal Jwt jwt) {
+
+        String keycloakUserId = jwt.getSubject();
+
+        return ResponseEntity.ok(
+                dbConnectionService.listByProject(
+                        projectId,
+                        keycloakUserId
+                )
+        );
     }
 
     @DeleteMapping("/{connectionId}")
@@ -59,9 +75,19 @@ public class DbConnectionController {
     public ResponseEntity<Map<String, String>> deleteConnection(
             @PathVariable Long projectId,
             @PathVariable Long connectionId,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        dbConnectionService.delete(projectId, connectionId, userDetails.getUsername());
-        return ResponseEntity.ok(Map.of("message", "Connection deleted successfully"));
+            @AuthenticationPrincipal Jwt jwt) {
+
+        String keycloakUserId = jwt.getSubject();
+
+        dbConnectionService.delete(
+                projectId,
+                connectionId,
+                keycloakUserId
+        );
+
+        return ResponseEntity.ok(
+                Map.of("message", "Connection deleted successfully")
+        );
     }
 
     @PostMapping("/{connectionId}/test")
@@ -69,8 +95,17 @@ public class DbConnectionController {
     public ResponseEntity<TestConnectionResponse> testConnection(
             @PathVariable Long projectId,
             @PathVariable Long connectionId,
-            @AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(dbConnectionService.testConnection(projectId, connectionId, userDetails.getUsername()));
+            @AuthenticationPrincipal Jwt jwt) {
+
+        String keycloakUserId = jwt.getSubject();
+
+        return ResponseEntity.ok(
+                dbConnectionService.testConnection(
+                        projectId,
+                        connectionId,
+                        keycloakUserId
+                )
+        );
     }
 
     @PostMapping("/{connectionId}/sync-schema")
@@ -79,8 +114,17 @@ public class DbConnectionController {
             @PathVariable Long projectId,
             @PathVariable Long connectionId,
             @RequestParam(required = false) Long schemaId,
-            @AuthenticationPrincipal UserDetails userDetails) {
+            @AuthenticationPrincipal Jwt jwt) {
+
+        String keycloakUserId = jwt.getSubject();
+
         return ResponseEntity.ok(
-                schemaIntrospectionService.syncSchema(projectId, connectionId, schemaId, userDetails.getUsername()));
+                schemaIntrospectionService.syncSchema(
+                        projectId,
+                        connectionId,
+                        schemaId,
+                        keycloakUserId
+                )
+        );
     }
 }
