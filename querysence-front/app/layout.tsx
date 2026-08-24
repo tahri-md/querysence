@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/next"
 import { ThemeProvider } from "@/components/theme-provider"
 import { AuthProvider } from "@/lib/auth-context"
 import { Toaster } from "@/components/ui/sonner"
+import { TokenInitializer } from "@/components/token-initializer"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -55,6 +56,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <AuthProvider>
+            <TokenInitializer />
             {children}
             <Toaster />
           </AuthProvider>

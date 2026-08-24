@@ -178,7 +178,6 @@ export default function ConnectionsPage() {
   }
 
   function openSyncDialog(conn: DbConnection) {
-    // Default to this connection's own last-synced schema if it has one, otherwise "create new"
     const linkedSchema = schemas.find((s) => s.dbConnectionId === conn.id)
     setSyncTargetSchemaId(linkedSchema ? linkedSchema.id.toString() : "new")
     setSyncDialogConnection(conn)
@@ -226,17 +225,13 @@ export default function ConnectionsPage() {
   const syncedCount = connections.filter((c) => c.lastSyncedAt).length
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8">
-      {/* Eyebrow + heading, in the same idiom as the rest of the app */}
+    <div className="mx-auto max-w-5xl space-y-8 font-mono">
       <div className="space-y-4">
-        <div className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary px-3 py-1 text-xs font-medium text-muted-foreground">
-          <Plug className="h-3 w-3 text-primary" />
-          Live connections
-        </div>
+
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Connect your <span className="text-primary">database</span>
+            <h1 className="text-3xl font-black py-3 tracking-tight">
+              Connect your Database
             </h1>
             <p className="text-sm text-muted-foreground max-w-lg">
               Give QuerySense read-only access to pull real schemas and run live EXPLAIN plans,
@@ -355,44 +350,59 @@ export default function ConnectionsPage() {
         </div>
       </div>
 
-      {/* Stat row — real counts, not decoration */}
-      <div className="grid grid-cols-3 gap-3">
-        <Card className="border-border">
-          <CardContent className="flex items-center gap-3 py-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
-              <Database className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <p className="text-lg font-semibold leading-none">{connections.length}</p>
-              <p className="text-xs text-muted-foreground mt-1">Total connections</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border">
-          <CardContent className="flex items-center gap-3 py-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/10">
-              <Activity className="h-4 w-4 text-emerald-500" />
-            </div>
-            <div>
-              <p className="text-lg font-semibold leading-none">{connectedCount}</p>
-              <p className="text-xs text-muted-foreground mt-1">Currently connected</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border">
-          <CardContent className="flex items-center gap-3 py-4">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10">
-              <RefreshCw className="h-4 w-4 text-primary" />
-            </div>
-            <div>
-              <p className="text-lg font-semibold leading-none">{syncedCount}</p>
-              <p className="text-xs text-muted-foreground mt-1">Schemas synced</p>
-            </div>
-          </CardContent>
-        </Card>
+ <div className="grid grid-cols-3 gap-3 ">
+  <Card className="border-border">
+    <CardContent className="flex flex-col gap-3">
+      <div className="flex flex-row justify-between items-center w-full">
+        <p className="text-md text-muted-foreground mt-1">
+          Total connections
+        </p>
+        <Database className="h-4 w-4 text-primary" />
       </div>
 
-      {/* Project selector */}
+      <div className="content-start">
+        <p className="text-xl font-bold leading-none">
+          {connections.length}
+        </p>
+      </div>
+    </CardContent>
+  </Card>
+
+  <Card className="border-border">
+    <CardContent className="flex flex-col gap-3">
+      <div className="flex flex-row justify-between items-center w-full">
+        <p className="text-md text-muted-foreground mt-1">
+          Currently connected
+        </p>
+        <Activity className="h-4 w-4 text-emerald-500" />
+      </div>
+
+      <div className="content-start">
+        <p className="text-xl font-bold leading-none">
+          {connectedCount}
+        </p>
+      </div>
+    </CardContent>
+  </Card>
+
+  <Card className="border-border">
+    <CardContent className="flex flex-col gap-3">
+      <div className="flex flex-row justify-between items-center w-full">
+        <p className="text-md text-muted-foreground mt-1">
+          Schemas synced
+        </p>
+        <RefreshCw className="h-4 w-4 text-primary" />
+      </div>
+
+      <div className="content-start">
+        <p className="text-xl font-bold leading-none">
+          {syncedCount}
+        </p>
+      </div>
+    </CardContent>
+  </Card>
+</div>
+
       {projects.length > 1 && (
         <div className="flex items-center gap-2">
           <Label className="text-sm text-muted-foreground">Project</Label>
@@ -414,7 +424,6 @@ export default function ConnectionsPage() {
         </div>
       )}
 
-      {/* Connection cards */}
       {isLoading ? (
         <div className="grid gap-3 sm:grid-cols-2">
           {[1, 2].map((i) => (
@@ -545,7 +554,6 @@ export default function ConnectionsPage() {
         </div>
       )}
 
-      {/* Sync schema target picker */}
       <Dialog open={!!syncDialogConnection} onOpenChange={(open) => !open && setSyncDialogConnection(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
