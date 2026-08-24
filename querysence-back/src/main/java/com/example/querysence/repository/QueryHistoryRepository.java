@@ -8,14 +8,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
-
 import com.example.querysence.model.Project;
 import com.example.querysence.model.QueryHistory;
 import com.example.querysence.model.User;
 
-@Repository
 public interface QueryHistoryRepository extends JpaRepository<QueryHistory, Long> {
     
     Page<QueryHistory> findByUser(User user, Pageable pageable);
