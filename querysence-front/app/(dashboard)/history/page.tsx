@@ -11,7 +11,6 @@ import { Suspense } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -157,16 +156,16 @@ export default function HistoryPage() {
         title="Query History"
         description="View and analyze your past SQL queries"
         actions={
-          <Button variant="outline" onClick={exportToCSV}>
+          <Button  onClick={exportToCSV}>
             <Download className="h-4 w-4 mr-2" />
             Export CSV
           </Button>
         }
       />
 
-      <Card>
+      <Card className="hover:shadow-md hover:border-primary/50  transition-shadow  ">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
+          <CardTitle className="flex items-center gap-2 text-base text-primary">
             <Filter className="h-4 w-4" />
             Filters
           </CardTitle>
@@ -231,7 +230,7 @@ export default function HistoryPage() {
             </div>
 
             <div className="flex items-end">
-              <Button variant="ghost" onClick={clearFilters} className="w-full">
+              <Button onClick={clearFilters} className="w-40">
                 Clear Filters
               </Button>
             </div>
@@ -239,9 +238,9 @@ export default function HistoryPage() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="hover:shadow-md hover:border-primary/50  transition-shadow ">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
+          <CardTitle className="flex items-center gap-2 text-primary">
             <History className="h-5 w-5" />
             Query History
           </CardTitle>
@@ -273,17 +272,17 @@ export default function HistoryPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Query</TableHead>
-                      <TableHead className="w-[100px]">Type</TableHead>
-                      <TableHead className="w-[120px]">Complexity</TableHead>
-                      <TableHead className="w-[100px]">Time (ms)</TableHead>
-                      <TableHead className="w-[150px]">Analyzed</TableHead>
-                      <TableHead className="w-[80px]">Actions</TableHead>
+                      <TableHead className="w-25">Type</TableHead>
+                      <TableHead className="w-30">Complexity</TableHead>
+                      <TableHead className="w-25">Time (ms)</TableHead>
+                      <TableHead className="w-37.5">Analyzed</TableHead>
+                      <TableHead className="w-20">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {history.map((entry) => (
                       <TableRow key={entry.id}>
-                        <TableCell className="font-mono text-xs max-w-[300px] truncate">
+                        <TableCell className="font-mono text-xs max-w-75 truncate">
                           {entry.queryText}
                         </TableCell>
                         <TableCell>
@@ -300,6 +299,7 @@ export default function HistoryPage() {
                           <Button
                             variant="ghost"
                             size="icon"
+                            className="text-primary hover:bg-primary/10"
                             onClick={() => handleViewDetails(entry)}
                           >
                             <Eye className="h-4 w-4" />
@@ -361,7 +361,7 @@ export default function HistoryPage() {
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
                   <Label>Query</Label>
-                  <pre className="rounded-lg bg-muted p-4 text-sm font-mono overflow-x-auto max-h-[200px]">
+                  <pre className="rounded-lg bg-muted p-4 text-sm font-mono overflow-x-auto max-h-50">
                     {selectedEntry.queryText}
                   </pre>
                 </div>

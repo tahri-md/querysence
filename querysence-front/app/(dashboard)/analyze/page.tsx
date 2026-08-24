@@ -214,7 +214,6 @@ function AnalyzePageContent() {
 
             <div className="space-y-2">
               <Label htmlFor="db-connection" className="flex items-center gap-1.5">
-                <Zap className="w-3 h-3 text-primary" />
                 Live connection
               </Label>
               <Select value={dbConnectionId} onValueChange={setDbConnectionId} disabled={!projectId}>
@@ -412,7 +411,7 @@ function AnalyzePageContent() {
                   <div className="space-y-3">
                     {result.warnings.map((warning, index) => (
                       <div key={index} className="flex gap-3 p-3 rounded-lg bg-yellow-50 dark:bg-yellow-950/20">
-                        <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-500 flex-shrink-0 mt-0.5" />
+                        <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-500 shrink-0 mt-0.5" />
                         <div className="text-sm">{warning}</div>
                       </div>
                     ))}

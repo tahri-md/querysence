@@ -4,60 +4,82 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(0.985 0.004 90);      /* Paper #FAFAF7 */
-  --foreground: oklch(0.22 0.02 265);        /* Slate #1B2130 */
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.22 0.02 265);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.22 0.02 265);
-  --primary: oklch(71.648% 0.18569 42.892);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.96 0.01 265);
-  --secondary-foreground: oklch(0.22 0.02 265);
-  --muted: oklch(0.96 0.01 265);
-  --muted-foreground: oklch(0.5 0.02 265);
-  --accent: oklch(0.94 0.03 275);
-  --accent-foreground: oklch(0.3 0.1 275);
-  --destructive: oklch(0.6 0.19 25);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.9 0.01 265);
-  --input: oklch(0.9 0.01 265);
-  --ring: #ff7433;
-  --chart-1: #ff7433;
-  --chart-2: oklch(0.68 0.16 155);
-  --chart-3: oklch(0.76 0.14 75);
-  --chart-4: oklch(0.6 0.19 25);
-  --chart-5: oklch(0.5 0.02 265);
+  --background: #F8F7FB;
+  --foreground: #18151F;
+
+  --card: #FFFFFF;
+  --card-foreground: #18151F;
+
+  --popover: #FFFFFF;
+  --popover-foreground: #18151F;
+
+  --primary: #7733FF;
+  --primary-foreground: #FFFFFF;
+
+  --secondary: #F0EDF5;
+  --secondary-foreground: #2A2433;
+
+  --muted: #F0EDF5;
+  --muted-foreground: #6F687A;
+
+  --accent: #EDE7FF;
+  --accent-foreground: #5B21D6;
+
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+
+  --border: #E4E0EA;
+  --input: #E4E0EA;
+
+  --ring: #7733FF;
+
+  --chart-1: #7733FF;
+  --chart-2: #8B5CF6;
+  --chart-3: #A78BFA;
+  --chart-4: #DC2626;
+  --chart-5: #6F687A;
+
   --radius: 0.5rem;
-  --sidebar: oklch(0.16 0.02 265);
-  --sidebar-foreground: oklch(0.95 0.01 265);
-  --sidebar-primary: oklch(71.648% 0.18569 42.892);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.22 0.03 265);
-  --sidebar-accent-foreground: oklch(0.95 0.01 265);
-  --sidebar-border: oklch(0.25 0.02 265);
-  --sidebar-ring: #ff7433;
+
+  /* Sidebar */
+  --sidebar: #F0EDF5;
+  --sidebar-foreground: #292431;
+
+  --sidebar-primary: #7733FF;
+  --sidebar-primary-foreground: #FFFFFF;
+
+  --sidebar-accent: #E5DDF8;
+  --sidebar-accent-foreground: #5B21D6;
+
+  --sidebar-border: #DDD7E6;
+  --sidebar-ring: #7733FF;
 }
 
 .dark {
   /* ── pure neutral black — no hue, no warmth ── */
-  --background: oklch(0.08 0 0);            /* #0A0A0A near-black */
-  --foreground: oklch(0.93 0 0);            /* #EDEDED clean white */
-  --card: oklch(0.11 0 0);                  /* #111111 */
+  --background: #111014;
+  --foreground: oklch(0.93 0 0);
+  /* #EDEDED clean white */
+  --card: #18161d;
+  /* #111111 */
   --card-foreground: oklch(0.93 0 0);
   --popover: oklch(0.11 0 0);
   --popover-foreground: oklch(0.93 0 0);
-  --primary: #ff7433;
+  --primary: #7733ff;
   --primary-foreground: oklch(0.08 0 0);
-  --secondary: oklch(0.15 0 0);             /* #181818 */
+  --secondary: oklch(0.15 0 0);
+  /* #181818 */
   --secondary-foreground: oklch(0.93 0 0);
   --muted: oklch(0.15 0 0);
-  --muted-foreground: oklch(0.55 0 0);      /* #6E6E6E */
-  --accent: oklch(0.18 0 0);               /* #222222 */
+  --muted-foreground: oklch(0.55 0 0);
+  /* #6E6E6E */
+  --accent: oklch(0.18 0 0);
+  /* #222222 */
   --accent-foreground: oklch(0.93 0 0);
   --destructive: oklch(0.65 0.19 25);
   --destructive-foreground: oklch(0.08 0 0);
-  --border: oklch(0.2 0 0);                /* #282828 */
+  --border: oklch(0.2 0 0);
+  /* #282828 */
   --input: oklch(0.2 0 0);
   --ring: #ff7433;
   --chart-1: #ff7433;
@@ -65,7 +87,8 @@
   --chart-3: oklch(0.78 0.14 75);
   --chart-4: oklch(0.65 0.19 25);
   --chart-5: oklch(0.62 0 0);
-  --sidebar: oklch(0.06 0 0);              /* #080808 deepest black */
+  /* #080808 deepest black */
+  --sidebar: #0e0d10;
   --sidebar-foreground: oklch(0.93 0 0);
   --sidebar-primary: #ff7433;
   --sidebar-primary-foreground: oklch(0.08 0 0);
@@ -120,6 +143,7 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
