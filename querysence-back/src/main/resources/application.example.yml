@@ -1,0 +1,61 @@
+spring:
+  application:
+    name: QuerySense
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:8081/realms/querysence}
+          jwk-set-uri: ${KEYCLOAK_JWK_SET_URI:http://keycloak:8080/realms/querysence/protocol/openid-connect/certs}
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/querysence}
+    username: ${SPRING_DATASOURCE_USERNAME:amine}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+  ai:
+    openai:
+      api-key: ${GROQ_API_KEY}
+      base-url: ${GROQ_BASE_URL:https://api.groq.com/openai}
+      chat:
+        options:
+          model: ${GROQ_MODEL:llama3-70b-8192}
+          temperature: ${GROQ_TEMPERATURE:0.2}
+
+# AI Rate Limiting
+ai:
+  rate-limit:
+    daily-requests: ${AI_DAILY_LIMIT:100}
+
+# Database encryption
+environment:
+  DB_CONNECTION_ENCRYPTION_KEY: ${DB_CONNECTION_ENCRYPTION_KEY}
+
+# Server Configuration
+server:
+  port: ${PORT:8081}
+
+# Logging
+logging:
+  level:
+    root: INFO
+    com.querysense: DEBUG
+    org.springframework.security: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
