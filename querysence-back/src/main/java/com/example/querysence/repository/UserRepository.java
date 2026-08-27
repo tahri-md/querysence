@@ -1,25 +1,15 @@
 package com.example.querysence.repository;
 
-import java.util.List;
-import java.util.Optional;
-
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import com.example.querysence.model.User;
-import com.example.querysence.model.UserRole;
+import java.util.Optional;
 
-@Repository
 public interface UserRepository extends JpaRepository<User, Long> {
-
-    Optional<User> findByFullName(String fullName);
-
     Optional<User> findByEmail(String email);
 
-    boolean existsByEmail(String email);
+    Optional<User> findByUsername(String username);
 
-    List<User> findByRole(UserRole role);
-
-    List<User> findByIsActive(Boolean isActive);
+    Optional<User> findByKeycloakUserId(String keycloakUserId);
 
 }

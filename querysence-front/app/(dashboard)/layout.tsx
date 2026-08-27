@@ -16,28 +16,23 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode
 }) {
-  const { user, isLoading } = useAuth()
   const router = useRouter()
+  const { authenticated, loading } = useAuth()
 
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push("/login")
+    if (!loading && !authenticated) {
+      router.replace("/login")
     }
-  }, [user, isLoading, router])
+  }, [loading, authenticated, router])
 
-  if (isLoading) {
+  if (loading || !authenticated) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="space-y-4">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-4 w-32" />
-        </div>
+      <div className="flex min-h-screen flex-col gap-4 p-8">
+        <Skeleton className="h-10 w-48" />
+        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-64 w-full" />
       </div>
     )
-  }
-
-  if (!user) {
-    return null
   }
 
   return (
@@ -45,7 +40,7 @@ export default function DashboardLayout({
       <AppSidebar />
       <SidebarInset>
         <header className="flex h-14 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="-ml-1" />
+          <SidebarTrigger className="ml-1" />
           <Separator orientation="vertical" className="mr-2 h-4" />
         </header>
         <main className="flex-1 overflow-auto">

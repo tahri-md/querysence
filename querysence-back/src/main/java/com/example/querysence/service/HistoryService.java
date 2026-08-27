@@ -35,10 +35,10 @@ public class HistoryService {
     private final ProjectRepository projectRepository;
 
     @Transactional(readOnly = true)
-    public Page<QueryHistoryResponse> getHistory(String username, Long projectId,
+    public Page<QueryHistoryResponse> getHistory(String keycloakUserId, Long projectId,
                                                   LocalDateTime startDate, LocalDateTime endDate,
                                                   Pageable pageable) {
-        User user = getUser(username);
+        User user = getUser(keycloakUserId);
         Page<QueryHistory> historyPage;
 
         if (projectId != null) {
@@ -55,20 +55,16 @@ public class HistoryService {
     }
 
     @Transactional(readOnly = true)
-    public QueryHistoryResponse getById(Long id, String username) {
+    public QueryHistoryResponse getById(Long id, String keycloakUserId) {
         QueryHistory history = historyRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Query history", "id", id));
-
-        if (!history.getUser().getFullName().equals(username)) {
-            throw new ResourceNotFoundException("Query history", "id", id);
-        }
 
         return mapToResponseWithDetails(history);
     }
 
     @Transactional(readOnly = true)
-    public AnalyticsResponse getAnalytics(String username) {
-        User user = getUser(username);
+    public AnalyticsResponse getAnalytics(String keycloakUserId) {
+        User user = getUser(keycloakUserId);
 
         Long totalQueries = historyRepository.countByUser(user);
         Double avgComplexity = historyRepository.getAverageComplexityByUser(user);
@@ -100,8 +96,8 @@ public class HistoryService {
     }
 
     @Transactional(readOnly = true)
-    public Page<QueryHistoryResponse> getSlowQueries(String username, Pageable pageable) {
-        User user = getUser(username);
+    public Page<QueryHistoryResponse> getSlowQueries(String keycloakUserId, Pageable pageable) {
+        User user = getUser(keycloakUserId);
         List<QueryHistory> slowQueries = historyRepository.findSlowQueriesByUser(user);
         
         List<QueryHistoryResponse> responses = slowQueries.stream()
@@ -118,8 +114,8 @@ public class HistoryService {
         return new PageImpl<>(responses.subList(start, end), pageable, responses.size());
     }
 
-    private User getUser(String username) {
-        return userRepository.findByEmail(username)
+    private User getUser(String keycloakUserId) {
+        return userRepository.findByKeycloakUserId(keycloakUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
     }
 

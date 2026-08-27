@@ -6,10 +6,34 @@ interface ApiOptions {
   headers?: Record<string, string>
 }
 
+// This will be injected by the client
+let getTokenFn: (() => Promise<string | undefined>) | null = null
+
+export function setGetTokenFn(fn: () => Promise<string | undefined>) {
+  getTokenFn = fn
+}
+
 async function fetchApi<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
   const { method = "GET", body, headers = {} } = options
 
-  const token = typeof window !== "undefined" ? localStorage.getItem("accessToken") : null
+  // Get fresh token from auth context (or localStorage as fallback)
+  let token: string | null = null
+
+  if (typeof window !== "undefined") {
+    // Try to get from auth context first
+    if (getTokenFn) {
+      try {
+        token = (await getTokenFn()) || null
+      } catch (error) {
+        console.warn("Failed to get token from auth context:", error)
+        // Fall back to localStorage
+        token = localStorage.getItem("accessToken")
+      }
+    } else {
+      // Fallback to localStorage if auth context not available
+      token = localStorage.getItem("accessToken")
+    }
+  }
 
   const config: RequestInit = {
     method,
@@ -24,28 +48,46 @@ async function fetchApi<T>(endpoint: string, options: ApiOptions = {}): Promise<
     config.body = JSON.stringify(body)
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, config)
+  try {
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, config)
 
-  if (response.status === 401) {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("accessToken")
-      window.location.href = "/login"
+    if (response.status === 401) {
+      // Token expired or invalid
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("accessToken")
+        // Redirect to login in the next tick to allow cleanup
+        setTimeout(() => {
+          window.location.href = "/login"
+        }, 100)
+      }
+      throw new Error("Session expired - please login again")
     }
-    throw new Error("Session expired")
-  }
 
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ message: "An error occurred" }))
-    throw new Error(error.message || `API Error: ${response.status}`)
-  }
+    if (response.status === 403) {
+      throw new Error("You don't have permission to access this resource")
+    }
 
-  // Handle empty responses
-  const text = await response.text()
-  return (text ? JSON.parse(text) : null) as T
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ message: "An error occurred" }))
+      throw new Error(errorData.message || `API Error: ${response.status}`)
+    }
+
+    // Handle empty responses
+    const text = await response.text()
+    return (text ? JSON.parse(text) : null) as T
+  } catch (error) {
+    // Re-throw with better error message
+    if (error instanceof Error) {
+      throw error
+    }
+    throw new Error("Network error occurred")
+  }
 }
 
-// Auth API
+// Auth API - Updated to use Keycloak
 export const authApi = {
+  // For Keycloak, login/register is handled by keycloak-js
+  // These endpoints are kept for compatibility but should not be used
   login: (email: string, password: string) =>
     fetchApi<{ accessToken: string; user: { id?: number; email: string; fullName: string; role?: string; is_active?: boolean } }>("/auth/login", {
       method: "POST",
@@ -60,8 +102,9 @@ export const authApi = {
 
   logout: async () => Promise.resolve(),
 
+  // Get current user from backend (synced from Keycloak)
   me: () =>
-    fetchApi<{ id?: number; email: string; fullName: string; role?: string; is_active?: boolean }>("/auth/me"),
+    fetchApi<{ id?: number; email: string; name?: string; fullName?: string; keycloakUserId?: string }>("/auth/me"),
 
   updateProfile: (fullName: string) =>
     fetchApi<{ id?: number; email: string; fullName: string; role?: string; is_active?: boolean }>("/auth/me", {

@@ -212,7 +212,7 @@ public class AIService {
 
 
     private void checkRateLimit(String username) {
-        User user = userRepository.findByFullName(username)
+        User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         LocalDateTime dayStart = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0);
@@ -225,7 +225,7 @@ public class AIService {
 
     private void logUsage(String username, String feature, long responseTimeMs) {
         try {
-            User user = userRepository.findByEmail(username).orElse(null);
+            User user = userRepository.findByUsername(username).orElse(null);
             AIUsageLog log = AIUsageLog.builder()
                     .user(user)
                     .feature(feature)

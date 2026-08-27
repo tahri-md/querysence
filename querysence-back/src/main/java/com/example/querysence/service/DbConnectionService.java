@@ -6,7 +6,6 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Properties;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,13 +15,11 @@ import com.example.querysence.model.ConnectionStatus;
 import com.example.querysence.model.DbConnection;
 import com.example.querysence.model.DbDialect;
 import com.example.querysence.model.Project;
-import com.example.querysence.model.ProjectMember;
 import com.example.querysence.model.User;
 import com.example.querysence.model.dto.DbConnectionDto;
 import com.example.querysence.model.dto.DbConnectionRequest;
 import com.example.querysence.model.dto.TestConnectionResponse;
 import com.example.querysence.repository.DbConnectionRepository;
-import com.example.querysence.repository.ProjectMemberRepository;
 import com.example.querysence.repository.ProjectRepository;
 import com.example.querysence.repository.UserRepository;
 
@@ -34,16 +31,10 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class DbConnectionService {
 
-    @Autowired
-    private ProjectRepository projectRepository;
-    @Autowired
-    private UserRepository userRepository;
-    @Autowired
-    private ProjectMemberRepository projectMemberRepository;
-    @Autowired
-    private DbConnectionRepository dbConnectionRepository;
-    @Autowired
-    private DbConnectionCryptoService cryptoService;
+    private final ProjectRepository projectRepository;
+    private final DbConnectionRepository dbConnectionRepository;
+    private final DbConnectionCryptoService cryptoService;
+    private final UserRepository userRepository;
 
     private static final int TEST_CONNECTION_TIMEOUT_SECONDS = 5;
 
@@ -51,9 +42,6 @@ public class DbConnectionService {
     public DbConnectionDto create(Long projectId, DbConnectionRequest request, String username) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("Project", "id", projectId));
-
-        User user = requireUser(username);
-        requireEditorOrOwner(project, user, "create a database connection");
 
         if (dbConnectionRepository.existsByNameAndProject(request.getName(), project)) {
             throw new BadRequestException("A connection with this name already exists in the project");
@@ -80,26 +68,22 @@ public class DbConnectionService {
     }
 
     @Transactional(readOnly = true)
-    public List<DbConnectionDto> listByProject(Long projectId, String username) {
-        Project project = projectRepository.findById(projectId)
+    public List<DbConnectionDto> listByProject(Long projectId, String keycloakUserId) {
+             User user = userRepository.findByKeycloakUserId(keycloakUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        Project project = projectRepository.findByIdAndOwner(projectId, user)
                 .orElseThrow(() -> new ResourceNotFoundException("Project", "id", projectId));
-
-        User user = requireUser(username);
-        requireMember(project, user);
-
         return dbConnectionRepository.findByProjectId(projectId).stream()
                 .map(this::mapToDto)
                 .toList();
     }
 
     @Transactional
-    public void delete(Long projectId, Long connectionId, String username) {
-        Project project = projectRepository.findById(projectId)
+    public void delete(Long projectId, Long connectionId, String keycloakUserId) {
+             User user = userRepository.findByKeycloakUserId(keycloakUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        Project project = projectRepository.findByIdAndOwner(projectId, user)
                 .orElseThrow(() -> new ResourceNotFoundException("Project", "id", projectId));
-
-        User user = requireUser(username);
-        requireEditorOrOwner(project, user, "delete a database connection");
-
         DbConnection connection = dbConnectionRepository.findByIdAndProjectId(connectionId, projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("DbConnection", "id", connectionId));
 
@@ -107,12 +91,11 @@ public class DbConnectionService {
     }
 
     @Transactional
-    public TestConnectionResponse testConnection(Long projectId, Long connectionId, String username) {
-        Project project = projectRepository.findById(projectId)
+    public TestConnectionResponse testConnection(Long projectId, Long connectionId, String keycloakUserId) {
+             User user = userRepository.findByKeycloakUserId(keycloakUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        Project project = projectRepository.findByIdAndOwner(projectId, user)
                 .orElseThrow(() -> new ResourceNotFoundException("Project", "id", projectId));
-
-        User user = requireUser(username);
-        requireMember(project, user);
 
         DbConnection connection = dbConnectionRepository.findByIdAndProjectId(connectionId, projectId)
                 .orElseThrow(() -> new ResourceNotFoundException("DbConnection", "id", connectionId));
@@ -176,31 +159,6 @@ public class DbConnectionService {
             case ORACLE -> String.format("jdbc:oracle:thin:@%s:%d:%s",
                     connection.getHost(), connection.getPort(), connection.getDatabaseName());
         };
-    }
-
-    private User requireUser(String username) {
-        return userRepository.findByEmail(username)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-    }
-
-    private void requireMember(Project project, User user) {
-        boolean isOwner = project.getOwner().getId().equals(user.getId());
-        boolean isMember = projectMemberRepository.findByProjectIdAndUserId(project.getId(), user.getId()).isPresent();
-        if (!isOwner && !isMember) {
-            throw new ResourceNotFoundException("Project", "id", project.getId());
-        }
-    }
-
-    private void requireEditorOrOwner(Project project, User user, String action) {
-        boolean isOwner = project.getOwner().getId().equals(user.getId());
-        if (isOwner) {
-            return;
-        }
-        ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(project.getId(), user.getId())
-                .orElseThrow(() -> new BadRequestException("You don't have permission to " + action));
-        if (member.getRole().name().equals("VIEWER")) {
-            throw new BadRequestException("Only editor/owner can " + action);
-        }
     }
 
     private DbConnectionDto mapToDto(DbConnection connection) {

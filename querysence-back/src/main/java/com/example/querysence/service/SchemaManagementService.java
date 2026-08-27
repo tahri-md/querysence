@@ -1,12 +1,10 @@
 package com.example.querysence.service;
 
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.example.querysence.exception.BadRequestException;
@@ -15,7 +13,6 @@ import com.example.querysence.model.ColumnDefinition;
 import com.example.querysence.model.DbConnection;
 import com.example.querysence.model.IndexDefinition;
 import com.example.querysence.model.Project;
-import com.example.querysence.model.ProjectMember;
 import com.example.querysence.model.SchemaDefinition;
 import com.example.querysence.model.TableDefinition;
 import com.example.querysence.model.User;
@@ -26,7 +23,6 @@ import com.example.querysence.model.dto.ProjectResponse;
 import com.example.querysence.model.dto.SchemaCreateRequest;
 import com.example.querysence.model.dto.SchemaResponse;
 import com.example.querysence.model.dto.TableCreateRequest;
-import com.example.querysence.repository.ProjectMemberRepository;
 import com.example.querysence.repository.ProjectRepository;
 import com.example.querysence.repository.SchemaDefinitionRepository;
 import com.example.querysence.repository.TableDefinitionRepository;
@@ -38,21 +34,14 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class SchemaManagementService {
-    @Autowired
-    private  ProjectRepository projectRepository;
-        @Autowired
-    private  UserRepository userRepository;
-        @Autowired
-    private  SchemaDefinitionRepository schemaRepository;
-        @Autowired
-    private  TableDefinitionRepository tableRepository;
-
-    @Autowired
-    private ProjectMemberRepository projectMemberRepository;
+    private final ProjectRepository projectRepository;
+    private final UserRepository userRepository;
+    private final SchemaDefinitionRepository schemaRepository;
+    private final TableDefinitionRepository tableRepository;
 
     @Transactional
-    public ProjectResponse create(ProjectCreateRequest request, String username) {
-        User user = userRepository.findByEmail(username)
+    public ProjectResponse create(ProjectCreateRequest request, String keycloakUserId) {
+        User user = userRepository.findByKeycloakUserId(keycloakUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         if (projectRepository.existsByNameAndOwner(request.getName(), user)) {
@@ -67,52 +56,51 @@ public class SchemaManagementService {
 
         project = projectRepository.save(project);
 
-        ProjectMember creatorMember = ProjectMember.builder()
-            .project(project)
-            .user(user)
-            .role(com.example.querysence.model.ProjectRole.OWNER)
-            .build();
-        projectMemberRepository.save(creatorMember);
-
         return mapToResponse(project);
     }
 
     @Transactional
-    public List<ProjectResponse> listByUser(String username) {
-        User user = userRepository.findByEmail(username)
+    public List<ProjectResponse> listByUser(String keycloakUserId) {
+        User user = userRepository.findByKeycloakUserId(keycloakUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        return projectRepository.findProjectsByUserIdIncludingShared(user.getId()).stream()
-                .map(this::mapToResponseWithSchemas)
+        return projectRepository.findByOwnerOrderByCreatedAtDesc(user).stream()
+                .map(this::mapToResponse)
                 .toList();
     }
 
     @Transactional
-    public ProjectResponse getById(Long id, String username) {
+    public ProjectResponse getById(
+            Long id,
+            String keycloakUserId) {
+
         Project project = projectRepository.findByIdWithSchemas(id);
+
         if (project == null) {
-            throw new ResourceNotFoundException("Project", "id", id);
+            throw new ResourceNotFoundException(
+                    "Project",
+                    "id",
+                    id);
         }
 
-        User user = userRepository.findByEmail(username)
+        User user = userRepository
+                .findByKeycloakUserId(keycloakUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        boolean isOwner = project.getOwner().getId().equals(user.getId());
-        boolean isMember = projectMemberRepository.findByProjectIdAndUserId(id, user.getId()).isPresent();
-
-        if (!isOwner && !isMember) {
-            throw new ResourceNotFoundException("Project", "id", id);
+        if (!project.getOwner().getId().equals(user.getId())) {
+            throw new BadRequestException(
+                    "You don't have permission to access this project");
         }
 
         return mapToResponseWithSchemas(project);
     }
 
     @Transactional
-    public void delete(Long id, String username) {
+    public void delete(Long id, String keycloakUserId) {
         Project project = projectRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Project", "id", id));
 
-        User user = userRepository.findByEmail(username)
+        User user = userRepository.findByKeycloakUserId(keycloakUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         if (!project.getOwner().getId().equals(user.getId())) {
@@ -178,24 +166,27 @@ public class SchemaManagementService {
     }
 
     @Transactional
-    public SchemaResponse createSchema(Long projectId, SchemaCreateRequest request, String username) {
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("Project", "id", projectId));
+    public SchemaResponse createSchema(
+            Long projectId,
+            SchemaCreateRequest request,
+            String keycloakUserId) {
 
-        User user = userRepository.findByEmail(username)
+        User user = userRepository
+                .findByKeycloakUserId(keycloakUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        boolean isOwner = project.getOwner().getId().equals(user.getId());
-        if (!isOwner) {
-            ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(projectId, user.getId())
-                    .orElseThrow(() -> new BadRequestException("You don't have permission to modify this project"));
-            if (member.getRole().name().equals("VIEWER")) {
-                throw new BadRequestException("Only editor/owner can create schemas");
-            }
-        }
+        Project project = projectRepository
+                .findByIdAndOwner(projectId, user)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Project",
+                        "id",
+                        projectId));
 
-        if (schemaRepository.existsByNameAndProject(request.getName(), project)) {
-            throw new BadRequestException("Schema with this name already exists in the project");
+        if (schemaRepository.existsByNameAndProject(
+                request.getName(), project)) {
+
+            throw new BadRequestException(
+                    "Schema with this name already exists in the project");
         }
 
         SchemaDefinition schema = SchemaDefinition.builder()
@@ -204,7 +195,9 @@ public class SchemaManagementService {
                 .project(project)
                 .build();
 
-        if (request.getDdlScript() != null && !request.getDdlScript().isEmpty()) {
+        if (request.getDdlScript() != null
+                && !request.getDdlScript().isEmpty()) {
+
             parseDDL(request.getDdlScript(), schema);
         }
 
@@ -214,17 +207,37 @@ public class SchemaManagementService {
     }
 
     @Transactional
-    public SchemaResponse getSchema(Long schemaId) {
-      SchemaDefinition schema = schemaRepository
-        .findByIdWithTables(schemaId)
-        .orElseThrow(() ->
-            new ResourceNotFoundException("Schema", "id", schemaId));
+    public SchemaResponse getSchema(
+            Long schemaId,
+            String keycloakUserId) {
+
+        User user = userRepository
+                .findByKeycloakUserId(keycloakUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        SchemaDefinition schema = schemaRepository
+                .findByIdWithTables(schemaId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Schema",
+                        "id",
+                        schemaId));
+
+        Project project = schema.getProject();
+
+        if (!project.getOwner().getId().equals(user.getId())) {
+            throw new BadRequestException(
+                    "You don't have permission to access this schema");
+        }
+
         return mapToResponse(schema);
     }
 
     @Transactional
-    public List<SchemaResponse> getSchemasByProject(Long projectId) {
-        Project project = projectRepository.findById(projectId)
+    public List<SchemaResponse> getSchemasByProject(Long projectId, String keycloakUserId) {
+        User user = userRepository.findByKeycloakUserId(keycloakUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        Project project = projectRepository.findByIdAndOwner(projectId, user)
                 .orElseThrow(() -> new ResourceNotFoundException("Project", "id", projectId));
 
         return schemaRepository.findByProject(project).stream()
@@ -233,44 +246,53 @@ public class SchemaManagementService {
     }
 
     @Transactional
-    public void deleteSchema(Long schemaId, String username) {
-        SchemaDefinition schema = schemaRepository.findById(schemaId)
-                .orElseThrow(() -> new ResourceNotFoundException("Schema", "id", schemaId));
+    public void deleteSchema(
+            Long schemaId,
+            String keycloakUserId) {
 
-        User user = userRepository.findByEmail(username)
+        User user = userRepository
+                .findByKeycloakUserId(keycloakUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        SchemaDefinition schema = schemaRepository
+                .findById(schemaId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Schema",
+                        "id",
+                        schemaId));
 
         Project project = schema.getProject();
 
-        boolean isOwner = project.getOwner().getId().equals(user.getId());
-        if (!isOwner) {
-            ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(project.getId(), user.getId())
-                    .orElseThrow(() -> new BadRequestException("You don't have permission to delete this schema"));
-            if (member.getRole().name().equals("VIEWER")) {
-                throw new BadRequestException("Only editor/owner can delete schemas");
-            }
+        if (!project.getOwner().getId().equals(user.getId())) {
+            throw new BadRequestException(
+                    "You don't have permission to delete this schema");
         }
 
         schemaRepository.delete(schema);
     }
 
     @Transactional
-    public SchemaResponse addTable(Long schemaId, TableCreateRequest request, String username) {
-        SchemaDefinition schema = schemaRepository.findById(schemaId)
-                .orElseThrow(() -> new ResourceNotFoundException("Schema", "id", schemaId));
+    public SchemaResponse addTable(
+            Long schemaId,
+            TableCreateRequest request,
+            String keycloakUserId) {
 
-        User user = userRepository.findByEmail(username)
+        User user = userRepository
+                .findByKeycloakUserId(keycloakUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
+        SchemaDefinition schema = schemaRepository
+                .findById(schemaId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Schema",
+                        "id",
+                        schemaId));
 
         Project project = schema.getProject();
 
-        boolean isOwner = project.getOwner().getId().equals(user.getId());
-        if (!isOwner) {
-            ProjectMember member = projectMemberRepository.findByProjectIdAndUserId(project.getId(), user.getId())
-                    .orElseThrow(() -> new BadRequestException("You don't have permission to modify this project"));
-            if (member.getRole().name().equals("VIEWER")) {
-                throw new BadRequestException("Only editor/owner can add tables");
-            }
+        if (!project.getOwner().getId().equals(user.getId())) {
+            throw new BadRequestException(
+                    "You don't have permission to modify this schema");
         }
 
         if (tableRepository.existsBySchemaAndTableName(schema, request.getTableName())) {
@@ -322,8 +344,7 @@ public class SchemaManagementService {
     private void parseDDL(String ddlScript, SchemaDefinition schema) {
         Pattern createTablePattern = Pattern.compile(
                 "CREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?([\\w.]+)\\s*\\(([^;]+)\\)",
-                Pattern.CASE_INSENSITIVE | Pattern.DOTALL
-        );
+                Pattern.CASE_INSENSITIVE | Pattern.DOTALL);
 
         Matcher matcher = createTablePattern.matcher(ddlScript);
         while (matcher.find()) {
@@ -340,10 +361,10 @@ public class SchemaManagementService {
             for (String part : parts) {
                 part = part.trim();
                 if (part.toUpperCase().startsWith("PRIMARY KEY") ||
-                    part.toUpperCase().startsWith("FOREIGN KEY") ||
-                    part.toUpperCase().startsWith("CONSTRAINT") ||
-                    part.toUpperCase().startsWith("INDEX") ||
-                    part.toUpperCase().startsWith("UNIQUE")) {
+                        part.toUpperCase().startsWith("FOREIGN KEY") ||
+                        part.toUpperCase().startsWith("CONSTRAINT") ||
+                        part.toUpperCase().startsWith("INDEX") ||
+                        part.toUpperCase().startsWith("UNIQUE")) {
                     continue;
                 }
 

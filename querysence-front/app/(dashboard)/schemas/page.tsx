@@ -1,11 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { ChevronRight, Database, FolderPlus, Key, Loader2, Plus, RefreshCcw, Share2, Table2, Trash2, Edit2, X } from "lucide-react"
+import { ChevronRight, Database, FolderPlus, Key, Loader2, Plus, RefreshCcw, Table2, Trash2, X } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
-import { ProjectSharingDialog } from "@/components/project-sharing-dialog"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -51,7 +50,6 @@ export default function SchemasPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [expandedProjects, setExpandedProjects] = useState<Set<number>>(new Set())
   const [selectedSchema, setSelectedSchema] = useState<Schema | null>(null)
-  const [sharingProjectId, setSharingProjectId] = useState<number | null>(null)
 
   const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false)
   const [newProjectName, setNewProjectName] = useState("")
@@ -73,24 +71,6 @@ export default function SchemasPage() {
   ])
   const [newIndexes, setNewIndexes] = useState<IndexDefinition[]>([])
   const [isAddingTable, setIsAddingTable] = useState(false)
-
-  const [isAddColumnOpen, setIsAddColumnOpen] = useState(false)
-  const [selectedTableForColumn, setSelectedTableForColumn] = useState<{ schemaId: number; tableName: string } | null>(null)
-  const [newColumnName, setNewColumnName] = useState("")
-  const [newColumnType, setNewColumnType] = useState("VARCHAR(255)")
-  const [newColumnNullable, setNewColumnNullable] = useState(true)
-  const [newColumnPk, setNewColumnPk] = useState(false)
-  const [newColumnFk, setNewColumnFk] = useState(false)
-  const [isAddingColumn, setIsAddingColumn] = useState(false)
-
-  const [isAddIndexOpen, setIsAddIndexOpen] = useState(false)
-  const [selectedTableForIndex, setSelectedTableForIndex] = useState<{ schemaId: number; tableName: string } | null>(null)
-  const [newIndexName, setNewIndexName] = useState("")
-  const [newIndexColumns, setNewIndexColumns] = useState<string[]>([])
-  const [newIndexUnique, setNewIndexUnique] = useState(false)
-  const [newIndexType, setNewIndexType] = useState("BTREE")
-  const [isAddingIndex, setIsAddingIndex] = useState(false)
-
   const fetchProjects = async () => {
     try {
       const data = await projectsApi.list()
@@ -257,30 +237,6 @@ export default function SchemasPage() {
     }
   }
 
-  const handleAddColumn = async () => {
-    if (!newColumnName.trim() || !selectedTableForColumn) {
-      toast.error("Column name is required")
-      return
-    }
-
-    toast.success("Column settings prepared - implement in backend")
-    setIsAddColumnOpen(false)
-    setNewColumnName("")
-    setNewColumnType("VARCHAR(255)")
-  }
-
-  const handleAddIndex = async () => {
-    if (!newIndexName.trim() || !selectedTableForIndex || newIndexColumns.length === 0) {
-      toast.error("Index name and columns are required")
-      return
-    }
-
-    toast.success("Index settings prepared - implement in backend")
-    setIsAddIndexOpen(false)
-    setNewIndexName("")
-    setNewIndexColumns([])
-  }
-
   const addColumnToTable = () => {
     setNewColumns([
       ...newColumns,
@@ -401,7 +357,7 @@ export default function SchemasPage() {
                       Add Column
                     </Button>
                   </div>
-                  <div className="space-y-3 max-h-[200px] overflow-y-auto">
+                  <div className="space-y-3 max-h-50 overflow-y-auto">
                     {newColumns.map((col, idx) => (
                       <div key={idx} className="flex flex-col sm:flex-row sm:gap-2 sm:items-end gap-2">
                         <Input
@@ -459,7 +415,7 @@ export default function SchemasPage() {
                       Add Index
                     </Button>
                   </div>
-                  <div className="space-y-3 max-h-[150px] overflow-y-auto">
+                  <div className="space-y-3 max-h-37.5 overflow-y-auto">
                     {newIndexes.map((idx, i) => (
                       <div key={i} className="flex flex-col sm:flex-row sm:gap-2 sm:items-end gap-2">
                         <Input
@@ -572,7 +528,7 @@ export default function SchemasPage() {
                     placeholder="CREATE TABLE users (...);"
                     value={newSchemaDdl}
                     onChange={(e) => setNewSchemaDdl(e.target.value)}
-                    className="font-mono text-sm min-h-[120px]"
+                    className="font-mono text-sm min-h-30"
                   />
                 </div>
               </div>
@@ -643,7 +599,7 @@ export default function SchemasPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[300px] sm:h-[500px] pr-4">
+            <ScrollArea className="h-75 sm:h-125 pr-4">
               {projects.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <Database className="h-12 w-12 text-muted-foreground mb-4" />
@@ -663,27 +619,17 @@ export default function SchemasPage() {
                           <div className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50 min-h-10">
                             <div className="flex items-center gap-2 min-w-0 flex-1">
                               <ChevronRight
-                                className={`h-4 w-4 transition-transform flex-shrink-0 ${
+                                className={`h-4 w-4 transition-transform shrink-0 ${
                                   expandedProjects.has(project.id) ? "rotate-90" : ""
                                 }`}
                               />
                               <span className="font-medium text-sm truncate">{project.name}</span>
                             </div>
-                            <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 ml-2">
+                            <div className="flex items-center gap-1 sm:gap-2 shrink-0 ml-2">
                               <Badge variant="secondary" className="text-xs">
                                 {project.schemaCount}
                               </Badge>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  setSharingProjectId(project.id)
-                                }}
-                              >
-                                <Share2 className="h-3 w-3" />
-                              </Button>
+                           
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                   <Button
@@ -724,7 +670,7 @@ export default function SchemasPage() {
                                 onClick={() => viewSchemaDetails(schema.id)}
                               >
                                 <div className="flex items-center gap-2">
-                                  <Database className="h-4 sm:h-5 w-4 sm:w-5 flex-shrink-0" />
+                                  <Database className="h-4 sm:h-5 w-4 sm:w-5 shrink-0" />
                                   <span className="truncate">{schema.name}</span>
                                 </div>
                                 <div className="flex items-center gap-1">
@@ -794,7 +740,7 @@ export default function SchemasPage() {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <CardTitle className="flex items-center gap-2 text-lg sm:text-xl truncate">
-                    <Database className="h-4 sm:h-5 w-4 sm:w-5 flex-shrink-0" />
+                    <Database className="h-4 sm:h-5 w-4 sm:w-5 shrink-0" />
                     <span className="truncate">{selectedSchema.name}</span>
                   </CardTitle>
                   <CardDescription className="text-xs sm:text-sm">{selectedSchema.dialect}</CardDescription>
@@ -802,7 +748,7 @@ export default function SchemasPage() {
               </div>
             </CardHeader>
             <CardContent>
-              <ScrollArea className="h-[300px] sm:h-[500px] pr-4">
+              <ScrollArea className="h-75 sm:h-125 pr-4">
                 {selectedSchema.tables?.map((table) => (
                   <TableCard key={table.tableName} table={table} />
                 ))}
@@ -820,11 +766,7 @@ export default function SchemasPage() {
         )}
       </div>
 
-      <ProjectSharingDialog
-        projectId={sharingProjectId || 0}
-        isOpen={sharingProjectId !== null}
-        onClose={() => setSharingProjectId(null)}
-      />
+    
     </div>
   )
 }
@@ -838,7 +780,7 @@ function TableCard({ table }: { table: TableDefinition }) {
         <CollapsibleTrigger asChild>
           <div className="flex items-center justify-between p-3 sm:p-4 cursor-pointer hover:bg-muted/50 min-h-12">
             <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
-              <Table2 className="h-4 sm:h-5 w-4 sm:w-5 text-muted-foreground flex-shrink-0" />
+              <Table2 className="h-4 sm:h-5 w-4 sm:w-5 text-muted-foreground shrink-0" />
               <div className="min-w-0 flex-1">
                 <p className="font-mono font-medium text-xs sm:text-sm truncate">{table.tableName}</p>
                 <p className="text-xs text-muted-foreground">
@@ -849,7 +791,7 @@ function TableCard({ table }: { table: TableDefinition }) {
               </div>
             </div>
             <ChevronRight
-              className={`h-4 sm:h-5 w-4 sm:w-5 text-muted-foreground transition-transform flex-shrink-0 ${
+              className={`h-4 sm:h-5 w-4 sm:w-5 text-muted-foreground transition-transform shrink-0 ${
                 isExpanded ? "rotate-90" : ""
               }`}
             />

@@ -48,8 +48,8 @@ public class QueryAnalysisService {
     private final SchemaDefinitionRepository schemaDefinitionRepository;
 
     @Transactional
-    public QueryAnalysisResponse analyze(QueryAnalysisRequest request, String username) {
-        User user = userRepository.findByEmail(username)
+    public QueryAnalysisResponse analyze(QueryAnalysisRequest request, String keycloakUserId) {
+        User user = userRepository.findByKeycloakUserId(keycloakUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         ParsedQuery parsedQuery = parserService.parseQuery(request.getSql());
@@ -70,8 +70,6 @@ public class QueryAnalysisService {
 
         com.example.querysence.model.QueryParseResponse parseResponse = parserService.parseAndFormat(request.getSql(), "POSTGRESQL");
 
-        log.info("Analyzed query for user {}, complexity: {}", username, complexityReport.getLevel());
-
         return QueryAnalysisResponse.builder()
                 .queryId(history.getId())
                 .queryType(parsedQuery.getQueryType())
@@ -86,13 +84,10 @@ public class QueryAnalysisService {
     }
 
     @Transactional(readOnly = true)
-    public QueryAnalysisResponse getById(Long id, String fullName) {
+    public QueryAnalysisResponse getById(Long id) {
         QueryHistory history = historyRepository.findByIdWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Query history", "id", id));
 
-        if (!history.getUser().getFullName().equals(fullName)) {
-            throw new ResourceNotFoundException("Query history", "id", id);
-        }
 
         ParsedQuery parsedQuery = parserService.parseQuery(history.getQueryText());
         Long schemaId = history.getSchema() != null ? history.getSchema().getId() : null;
