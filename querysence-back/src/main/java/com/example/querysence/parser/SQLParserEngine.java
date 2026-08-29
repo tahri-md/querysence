@@ -336,7 +336,8 @@ public class SQLParserEngine {
                     }
                 }
             }
-        } catch (NoSuchMethodException ignored) {
+        } catch (NoSuchMethodException e) {
+            log.debug("getParameters method not found on function {}: {}", function.getClass().getSimpleName(), e.getMessage());
         } catch (Exception e) {
             log.debug("Failed to inspect expression children: {}", e.getMessage());
         }
@@ -391,7 +392,7 @@ public class SQLParserEngine {
             if (value instanceof Expression innerExpression) {
                 return innerExpression;
             }
-        } catch (Exception ignored) {
+        } catch (ReflectiveOperationException ignored) {
         }
         return null;
     }
@@ -403,7 +404,7 @@ public class SQLParserEngine {
             if (value != null) {
                 return value.toString();
             }
-        } catch (Exception ignored) {
+        } catch (ReflectiveOperationException ignored) {
         }
         return expression.getClass().getSimpleName();
     }
@@ -483,7 +484,8 @@ public class SQLParserEngine {
             java.lang.reflect.Method parametersMethod = function.getClass().getMethod("getParameters");
             Object parameters = parametersMethod.invoke(function);
             extractExpressionListFromObject(parameters, functions, aggregateNames);
-        } catch (NoSuchMethodException ignored) {
+        } catch (NoSuchMethodException e) {
+            log.debug("getParameters method not found on {}: {}", function.getClass().getSimpleName(), e.getMessage());
         } catch (Exception e) {
             log.debug("Failed to inspect function parameters for nested functions: {}", e.getMessage());
         }
@@ -609,10 +611,8 @@ public class SQLParserEngine {
             // fallback: attempt to parse whatever the fromItem string is
             try {
                 ParsedQuery pq = parse(fromItem.toString());
-                if (pq != null) {
-                    subquery = pq;
-                    tableName = fromItem.getAlias() != null ? fromItem.getAlias().getName() : "";
-                }
+                subquery = pq;
+                tableName = fromItem.getAlias() != null ? fromItem.getAlias().getName() : "";
             } catch (Exception e) {
                 log.debug("Skipping non-subquery from-item: {}", e.getMessage());
             }
@@ -650,7 +650,7 @@ public class SQLParserEngine {
                 Expression inner = (Expression) expr.getClass().getMethod("getExpression").invoke(expr);
                 extractJoinKeyPairs(inner, keys);
                 return;
-            } catch (Exception ignored) {
+            } catch (ReflectiveOperationException ignored) {
             }
         }
 
@@ -692,7 +692,7 @@ public class SQLParserEngine {
             try {
                 Expression innerExpr = (Expression) expression.getClass().getMethod("getExpression").invoke(expression);
                 return parseWhereExpression(innerExpr, subqueries, depth);
-            } catch (Exception e) {
+            } catch (ReflectiveOperationException e) {
                 log.warn("Failed to extract inner expression from parenthesis: {}", e.getMessage());
             }
         }

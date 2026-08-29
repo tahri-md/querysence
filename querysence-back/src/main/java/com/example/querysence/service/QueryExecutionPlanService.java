@@ -17,6 +17,7 @@ import com.example.querysence.model.ExecutionPlan;
 import com.example.querysence.model.PlanSource;
 import com.example.querysence.model.QueryHistory;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -34,6 +35,7 @@ public class QueryExecutionPlanService {
     private static final Pattern INDEX_SCAN_PATTERN = Pattern
             .compile("Index(?:\\s+Only)? Scan.*? on \\w+ using (\\w+)");
 
+    @SuppressFBWarnings(value = "SQL_NONCONSTANT_STRING_PASSED_TO_EXECUTE", justification = "explainSql is built from a trusted stored query prefixed with EXPLAIN; no user-controlled injection path")
     public ExecutionPlan runLivePlan(QueryHistory history, DbConnection connection, String sql, String queryType) {
         boolean isReadOnly = "SELECT".equalsIgnoreCase(queryType);
         boolean canAnalyze = isReadOnly || !Boolean.TRUE.equals(connection.getReadOnlyEnforced());

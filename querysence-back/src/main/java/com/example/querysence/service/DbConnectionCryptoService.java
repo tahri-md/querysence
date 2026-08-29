@@ -17,7 +17,7 @@ import org.springframework.stereotype.Service;
 import com.example.querysence.exception.BadRequestException;
 
 @Service
-public class DbConnectionCryptoService {
+public final class DbConnectionCryptoService {
 
     private static final String AES = "AES";
     private static final String AES_GCM = "AES/GCM/NoPadding";

@@ -142,7 +142,7 @@ public class HistoryService {
             .columns(s.getColumns())
             .impactScore(
                 s.getImpactScore() != null 
-                    ? s.getImpactScore().toString() 
+                    ? s.getImpactScore() 
                     : null
             )
             .build()

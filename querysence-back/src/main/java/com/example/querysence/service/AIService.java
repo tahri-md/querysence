@@ -2,6 +2,7 @@ package com.example.querysence.service;
 
 
 import com.example.querysence.ai.PromptTemplates;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import com.example.querysence.exception.AIServiceException;
 import com.example.querysence.exception.BadRequestException;
 import com.example.querysence.exception.ResourceNotFoundException;
@@ -45,6 +46,8 @@ public class AIService {
     private int dailyRequestLimit;
 
     @Transactional
+    @SuppressFBWarnings(value = "VA_FORMAT_STRING_USES_NEWLINE",
+            justification = "\\n in prompt text blocks is intentional for AI prompt formatting")
     public NLToSQLResponse convertNaturalLanguageToSQL(NLToSQLRequest request, String username) {
         checkRateLimit(username);
 
@@ -58,7 +61,7 @@ public class AIService {
             dialect = schema.getDialect();
         }
 
-        String prompt = String.format(PromptTemplates.NL_TO_SQL_PROMPT, 
+        String prompt = PromptTemplates.NL_TO_SQL_PROMPT.formatted(
                 schemaDescription, request.getQuery(), dialect);
 
         long startTime = System.currentTimeMillis();
@@ -87,12 +90,14 @@ public class AIService {
                 .build();
     }
 
+    @SuppressFBWarnings(value = "VA_FORMAT_STRING_USES_NEWLINE",
+            justification = "\\n in prompt text blocks is intentional for AI prompt formatting")
     @Cacheable(value = "queryExplanations", key = "#sql.hashCode()")
     @Transactional
     public ExplainResponse explainQuery(String sql, String username) {
         checkRateLimit(username);
 
-        String prompt = String.format(PromptTemplates.EXPLAIN_SQL_PROMPT, sql);
+        String prompt = PromptTemplates.EXPLAIN_SQL_PROMPT.formatted(sql);
 
         long startTime = System.currentTimeMillis();
         String response = callAI(prompt, username, "EXPLAIN");
@@ -112,6 +117,8 @@ public class AIService {
     }
 
     @Transactional
+    @SuppressFBWarnings(value = "VA_FORMAT_STRING_USES_NEWLINE",
+            justification = "\\n in prompt text blocks is intentional for AI prompt formatting")
     public OptimizationResponse optimizeQuery(String sql, Long schemaId, String username) {
         checkRateLimit(username);
 
@@ -125,7 +132,7 @@ public class AIService {
             tableStats = buildTableStats(schema);
         }
 
-        String prompt = String.format(PromptTemplates.OPTIMIZE_SQL_PROMPT, sql, schemaDescription, tableStats);
+        String prompt = PromptTemplates.OPTIMIZE_SQL_PROMPT.formatted(sql, schemaDescription, tableStats);
 
         long startTime = System.currentTimeMillis();
         String response = callAI(prompt, username, "OPTIMIZE");
@@ -144,10 +151,12 @@ public class AIService {
     }
 
     @Transactional
+    @SuppressFBWarnings(value = "VA_FORMAT_STRING_USES_NEWLINE",
+            justification = "\\n in prompt text blocks is intentional for AI prompt formatting")
     public SecurityScanResponse scanForSecurity(SecurityScanRequest request, String username) {
         checkRateLimit(username);
 
-        String prompt = String.format(PromptTemplates.SECURITY_SCAN_PROMPT, 
+        String prompt = PromptTemplates.SECURITY_SCAN_PROMPT.formatted(
                 request.getCode(), request.getContext());
 
         long startTime = System.currentTimeMillis();
@@ -178,7 +187,7 @@ public class AIService {
             schemaDescription = buildSchemaDescription(schema);
         }
 
-        String prompt = String.format(PromptTemplates.CHAT_CONTEXT_PROMPT, 
+        String prompt = PromptTemplates.CHAT_CONTEXT_PROMPT.formatted(
                 schemaDescription, conversationHistory, message);
 
         long startTime = System.currentTimeMillis();

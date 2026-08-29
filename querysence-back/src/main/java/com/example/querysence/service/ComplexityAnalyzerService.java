@@ -1,6 +1,7 @@
 package com.example.querysence.service;
 
 import java.util.ArrayList;
+import java.util.Objects;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -179,7 +180,7 @@ public class ComplexityAnalyzerService {
             schemaRepository.findByIdWithFullDetails(schemaId).ifPresent(schema -> {
                 for (TableDefinition table : schema.getTables()) {
                     String tableName = table.getTableName().toLowerCase(Locale.ROOT);
-                    tableRowCounts.put(tableName, table.getEstimatedRows() == null ? 0L : table.getEstimatedRows());
+                    tableRowCounts.put(tableName, Objects.requireNonNullElse(table.getEstimatedRows(), 0L));
                     Set<String> indexedColumns = new HashSet<>();
                     for (IndexDefinition index : table.getIndexes()) {
                         indexedColumns.addAll(index.getColumns().stream()
