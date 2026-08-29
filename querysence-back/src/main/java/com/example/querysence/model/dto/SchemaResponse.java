@@ -5,7 +5,6 @@ import java.util.List;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -22,15 +21,16 @@ public class SchemaResponse {
     private String dialect;
     private Long projectId;
 
-    private String source;          // "MANUAL" or "SYNCED"
-    private Long dbConnectionId;    // null when source = "MANUAL"
+    private String source; // "MANUAL" or "SYNCED"
+    private Long dbConnectionId; // null when source = "MANUAL"
     private LocalDateTime lastSyncedAt; // null when source = "MANUAL"
 
     private List<TableResponse> tables;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    @Data
+    @Getter
+    @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
@@ -43,7 +43,8 @@ public class SchemaResponse {
         private List<IndexResponse> indexes;
     }
 
-    @Data
+    @Getter
+    @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
@@ -58,7 +59,8 @@ public class SchemaResponse {
         private String referencesColumn;
     }
 
-    @Data
+    @Getter
+    @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor

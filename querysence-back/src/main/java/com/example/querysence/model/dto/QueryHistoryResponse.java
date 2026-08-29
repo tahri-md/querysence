@@ -5,11 +5,9 @@ import java.util.List;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-
 
 @Getter
 @Setter
@@ -17,7 +15,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class QueryHistoryResponse {
-    
+
     private Long id;
     private String queryText;
     private String queryType;
@@ -26,11 +24,12 @@ public class QueryHistoryResponse {
     private Long projectId;
     private String projectName;
     private LocalDateTime analyzedAt;
-    
+
     private List<IndexSuggestionSummary> indexSuggestions;
     private List<SecurityFindingSummary> securityFindings;
 
-    @Data
+    @Getter
+    @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
@@ -40,7 +39,8 @@ public class QueryHistoryResponse {
         private String impactScore;
     }
 
-    @Data
+    @Getter
+    @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor

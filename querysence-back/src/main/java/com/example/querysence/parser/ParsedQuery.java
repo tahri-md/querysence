@@ -1,13 +1,11 @@
 package com.example.querysence.parser;
 
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -18,32 +16,32 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ParsedQuery {
-    
+
     private boolean valid;
     private String queryType;
     private String errorMessage;
-    
+
     @Builder.Default
     private List<String> tables = new ArrayList<>();
-    
+
     @Builder.Default
     private List<String> columns = new ArrayList<>();
-    
+
     @Builder.Default
     private List<JoinInfo> joins = new ArrayList<>();
-    
+
     @Builder.Default
     private List<WhereCondition> whereConditions = new ArrayList<>();
-    
+
     @Builder.Default
     private List<String> orderByColumns = new ArrayList<>();
-    
+
     @Builder.Default
     private List<String> groupByColumns = new ArrayList<>();
-    
+
     @Builder.Default
     private List<ParsedQuery> subqueries = new ArrayList<>();
-    
+
     @Builder.Default
     private List<String> aggregateFunctions = new ArrayList<>();
 
@@ -55,12 +53,13 @@ public class ParsedQuery {
 
     @Builder.Default
     private Map<String, String> aliasMap = new java.util.HashMap<>();
-    
+
     private boolean hasDistinct;
     private boolean hasHaving;
     private int subqueryDepth;
-    
-    @Data
+
+    @Getter
+    @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
@@ -74,7 +73,8 @@ public class ParsedQuery {
         private ParsedQuery subquery;
     }
 
-    @Data
+    @Getter
+    @Setter
     @NoArgsConstructor
     @AllArgsConstructor
     public static class JoinKey {
@@ -93,7 +93,8 @@ public class ParsedQuery {
         UNKNOWN
     }
 
-    @Data
+    @Getter
+    @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
@@ -113,7 +114,8 @@ public class ParsedQuery {
         CUSTOM
     }
 
-    @Data
+    @Getter
+    @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
@@ -122,8 +124,9 @@ public class ParsedQuery {
         private FunctionCategory category;
         private String expression;
     }
-    
-    @Data
+
+    @Getter
+    @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
@@ -135,7 +138,8 @@ public class ParsedQuery {
         private boolean isParameterized;
     }
 
-    interface Condition {}
+    interface Condition {
+    }
 
     public static class ComparisonCondition implements Condition {
         public String column;
@@ -147,7 +151,8 @@ public class ParsedQuery {
         public ComparisonCondition() {
         }
 
-        public ComparisonCondition(String column, String table, String operator, String value, boolean isParameterized) {
+        public ComparisonCondition(String column, String table, String operator, String value,
+                boolean isParameterized) {
             this.column = column;
             this.table = table;
             this.operator = operator;
@@ -166,7 +171,8 @@ public class ParsedQuery {
         public InCondition() {
         }
 
-        public InCondition(String column, String table, List<String> values, boolean isParameterized, ParsedQuery subquery) {
+        public InCondition(String column, String table, List<String> values, boolean isParameterized,
+                ParsedQuery subquery) {
             this.column = column;
             this.table = table;
             this.values = values;
@@ -185,7 +191,8 @@ public class ParsedQuery {
         public BetweenCondition() {
         }
 
-        public BetweenCondition(String column, String table, String startValue, String endValue, boolean isParameterized) {
+        public BetweenCondition(String column, String table, String startValue, String endValue,
+                boolean isParameterized) {
             this.column = column;
             this.table = table;
             this.startValue = startValue;

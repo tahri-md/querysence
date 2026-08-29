@@ -21,9 +21,9 @@ public class QueryAnalysisResponse {
     private ComplexityReport complexity;
     private List<IndexSuggestionResponse> indexSuggestions;
     private List<String> warnings;
-    private com.example.querysence.model.QueryParseResponse parseResult;
+    private QueryParseResponse parseResult;
 
-    //  null if analyzed statically (no dbConnectionId supplied in the request)
+    // null if analyzed statically (no dbConnectionId supplied in the request)
     private Long dbConnectionId;
     private ExecutionPlanDto executionPlan;
 
