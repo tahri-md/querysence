@@ -1,15 +1,15 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
-import { Activity, AlertTriangle, ArrowRight, ArrowUpRight, Database, Search, TrendingUp } from "lucide-react"
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart"
-import { PageHeader } from "@/components/page-header"
-import { analyticsApi, type AnalyticsOverview, type HistoryEntry, historyApi } from "@/lib/api"
-import { toast } from "sonner"
+import { analyticsApi, historyApi, type AnalyticsOverview, type HistoryEntry } from "@/lib/api"
+import { Activity, AlertTriangle, ArrowRight, ArrowUpRight, Database, Search, TrendingUp } from "lucide-react"
 import Link from "next/link"
+import { useEffect, useState } from "react"
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
+import { toast } from "sonner"
 
 const chartConfig = {
   count: {
@@ -160,7 +160,7 @@ export default function DashboardPage() {
                       />
                       <YAxis tickLine={false} axisLine={false} tick={{ fontSize: 12 }} />
                       <ChartTooltip content={<ChartTooltipContent />} />
-                      <Bar dataKey="count" fill="#7733ff" radius={4} />
+                      <Bar dataKey="count" fill="var(--primary)" radius={4} />
                     </BarChart>
                   </ChartContainer>
                 ) : (

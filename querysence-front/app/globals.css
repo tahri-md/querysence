@@ -13,7 +13,7 @@
   --popover: #FFFFFF;
   --popover-foreground: #18151F;
 
-  --primary: #7733FF;
+  --primary: #1a1a1a;
   --primary-foreground: #FFFFFF;
 
   --secondary: #F0EDF5;
@@ -65,7 +65,7 @@
   --card-foreground: oklch(0.93 0 0);
   --popover: oklch(0.11 0 0);
   --popover-foreground: oklch(0.93 0 0);
-  --primary: #7733ff;
+  --primary: #E8DBCA;
   --primary-foreground: oklch(0.08 0 0);
   --secondary: oklch(0.15 0 0);
   /* #181818 */
