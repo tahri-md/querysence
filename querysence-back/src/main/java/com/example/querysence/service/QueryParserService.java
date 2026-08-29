@@ -1,18 +1,20 @@
 package com.example.querysence.service;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-
-import com.example.querysence.exception.InvalidSQLException;
-import com.example.querysence.model.QueryParseResponse;
-import com.example.querysence.parser.ParsedQuery;
-import com.example.querysence.parser.SQLParserEngine;
-
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.Locale;
+
+import org.springframework.stereotype.Service;
+
+import com.example.querysence.exception.InvalidSQLException;
+import com.example.querysence.model.dto.QueryParseResponse;
+import com.example.querysence.parser.ParsedQuery;
+import com.example.querysence.parser.SQLParserEngine;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
@@ -79,6 +81,7 @@ public class QueryParserService {
                 .build();
     }
 
+    @SuppressWarnings("PMD.UnusedPrivateMethod")
     private QueryParseResponse.SelectExpressionResponse mapSelectExpression(ParsedQuery.SelectExpression expression) {
         if (expression == null) {
             return null;
@@ -90,9 +93,10 @@ public class QueryParserService {
                 .alias(expression.getAlias())
                 .operator(expression.getOperator())
                 .value(expression.getValue())
-                .children(expression.getChildren() == null ? null : expression.getChildren().stream()
-                        .map(this::mapSelectExpression)
-                        .toList())
+                .children(expression.getChildren() == null ? null
+                        : expression.getChildren().stream()
+                                .map(this::mapSelectExpression)
+                                .toList())
                 .build();
     }
 
@@ -103,13 +107,13 @@ public class QueryParserService {
             byte[] hash = digest.digest(normalized.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("SHA-256 algorithm not available", e);
+            throw new IllegalStateException("SHA-256 algorithm not available", e);
         }
     }
 
     private String normalizeSql(String sql) {
         return sql.trim()
-                .toLowerCase()
+                .toLowerCase(Locale.ROOT)
                 .replaceAll("\\s+", " ")
                 .replaceAll("\\s*,\\s*", ",")
                 .replaceAll("\\s*=\\s*", "=");

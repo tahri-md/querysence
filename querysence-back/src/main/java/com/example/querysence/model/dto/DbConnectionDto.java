@@ -1,13 +1,15 @@
 package com.example.querysence.model.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.time.LocalDateTime;
 
-@Data
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -20,7 +22,6 @@ public class DbConnectionDto {
     private Integer port;
     private String databaseName;
     private String username;
-    // password intentionally omitted
     private String dialect;
     private Boolean sslEnabled;
     private Boolean readOnlyEnforced;

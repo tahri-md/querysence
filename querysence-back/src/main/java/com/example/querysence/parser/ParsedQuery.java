@@ -1,46 +1,48 @@
 package com.example.querysence.parser;
 
-
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-@Data
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class ParsedQuery {
-    
+
     private boolean valid;
     private String queryType;
     private String errorMessage;
-    
+
     @Builder.Default
     private List<String> tables = new ArrayList<>();
-    
+
     @Builder.Default
     private List<String> columns = new ArrayList<>();
-    
+
     @Builder.Default
     private List<JoinInfo> joins = new ArrayList<>();
-    
+
     @Builder.Default
     private List<WhereCondition> whereConditions = new ArrayList<>();
-    
+
     @Builder.Default
     private List<String> orderByColumns = new ArrayList<>();
-    
+
     @Builder.Default
     private List<String> groupByColumns = new ArrayList<>();
-    
+
     @Builder.Default
     private List<ParsedQuery> subqueries = new ArrayList<>();
-    
+
     @Builder.Default
     private List<String> aggregateFunctions = new ArrayList<>();
 
@@ -52,12 +54,13 @@ public class ParsedQuery {
 
     @Builder.Default
     private Map<String, String> aliasMap = new java.util.HashMap<>();
-    
+
     private boolean hasDistinct;
     private boolean hasHaving;
     private int subqueryDepth;
-    
-    @Data
+
+    @Getter
+    @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
@@ -71,7 +74,8 @@ public class ParsedQuery {
         private ParsedQuery subquery;
     }
 
-    @Data
+    @Getter
+    @Setter
     @NoArgsConstructor
     @AllArgsConstructor
     public static class JoinKey {
@@ -90,7 +94,8 @@ public class ParsedQuery {
         UNKNOWN
     }
 
-    @Data
+    @Getter
+    @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
@@ -110,7 +115,8 @@ public class ParsedQuery {
         CUSTOM
     }
 
-    @Data
+    @Getter
+    @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
@@ -119,8 +125,9 @@ public class ParsedQuery {
         private FunctionCategory category;
         private String expression;
     }
-    
-    @Data
+
+    @Getter
+    @Setter
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
@@ -132,19 +139,22 @@ public class ParsedQuery {
         private boolean isParameterized;
     }
 
-    interface Condition {}
+    interface Condition {
+    }
 
+    @Getter
     public static class ComparisonCondition implements Condition {
-        public String column;
-        public String table;
-        public String operator;
-        public String value;
-        public boolean isParameterized;
+        private String column;
+        private String table;
+        private String operator;
+        private String value;
+        private boolean isParameterized;
 
         public ComparisonCondition() {
         }
 
-        public ComparisonCondition(String column, String table, String operator, String value, boolean isParameterized) {
+        public ComparisonCondition(String column, String table, String operator, String value,
+                boolean isParameterized) {
             this.column = column;
             this.table = table;
             this.operator = operator;
@@ -153,36 +163,41 @@ public class ParsedQuery {
         }
     }
 
+    @Getter
     public static class InCondition implements Condition {
-        public String column;
-        public String table;
-        public List<String> values;
-        public boolean isParameterized;
-        public ParsedQuery subquery;
+        private String column;
+        private String table;
+        private List<String> values;
+        private boolean isParameterized;
+        private ParsedQuery subquery;
 
         public InCondition() {
         }
 
-        public InCondition(String column, String table, List<String> values, boolean isParameterized, ParsedQuery subquery) {
+        @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "ParsedQuery is an internal parse result; defensive copy not warranted")
+        public InCondition(String column, String table, List<String> values, boolean isParameterized,
+                ParsedQuery subquery) {
             this.column = column;
             this.table = table;
-            this.values = values;
+            this.values = values == null ? null : new ArrayList<>(values);
             this.isParameterized = isParameterized;
             this.subquery = subquery;
         }
     }
 
+    @Getter
     public static class BetweenCondition implements Condition {
-        public String column;
-        public String table;
-        public String startValue;
-        public String endValue;
-        public boolean isParameterized;
+        private String column;
+        private String table;
+        private String startValue;
+        private String endValue;
+        private boolean isParameterized;
 
         public BetweenCondition() {
         }
 
-        public BetweenCondition(String column, String table, String startValue, String endValue, boolean isParameterized) {
+        public BetweenCondition(String column, String table, String startValue, String endValue,
+                boolean isParameterized) {
             this.column = column;
             this.table = table;
             this.startValue = startValue;
@@ -191,11 +206,12 @@ public class ParsedQuery {
         }
     }
 
+    @Getter
     public static class LikeCondition implements Condition {
-        public String column;
-        public String table;
-        public String pattern;
-        public boolean isParameterized;
+        private String column;
+        private String table;
+        private String pattern;
+        private boolean isParameterized;
 
         public LikeCondition() {
         }
@@ -208,10 +224,11 @@ public class ParsedQuery {
         }
     }
 
+    @Getter
     public static class IsNullCondition implements Condition {
-        public String column;
-        public String table;
-        public boolean isNot;
+        private String column;
+        private String table;
+        private boolean isNot;
 
         public IsNullCondition() {
         }
@@ -223,12 +240,14 @@ public class ParsedQuery {
         }
     }
 
+    @Getter
     public static class ExistsCondition implements Condition {
-        public ParsedQuery subquery;
+        private ParsedQuery subquery;
 
         public ExistsCondition() {
         }
 
+        @SuppressFBWarnings(value = "EI_EXPOSE_REP2", justification = "ParsedQuery is an internal parse result; defensive copy not warranted")
         public ExistsCondition(ParsedQuery subquery) {
             this.subquery = subquery;
         }

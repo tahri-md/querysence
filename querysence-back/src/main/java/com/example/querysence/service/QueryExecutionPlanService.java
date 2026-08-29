@@ -17,9 +17,9 @@ import com.example.querysence.model.ExecutionPlan;
 import com.example.querysence.model.PlanSource;
 import com.example.querysence.model.QueryHistory;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-
 
 @Service
 @RequiredArgsConstructor
@@ -28,15 +28,14 @@ public class QueryExecutionPlanService {
 
     private final DbConnectionService dbConnectionService;
 
-    private static final Pattern PG_COST_PATTERN =
-            Pattern.compile("cost=[\\d.]+\\.\\.([\\d.]+)\\s+rows=(\\d+)");
-    private static final Pattern PG_ACTUAL_PATTERN =
-            Pattern.compile("actual time=[\\d.]+\\.\\.([\\d.]+)\\s+rows=(\\d+)");
-    private static final Pattern SEQ_SCAN_PATTERN =
-            Pattern.compile("Seq Scan on (\\w+)");
-    private static final Pattern INDEX_SCAN_PATTERN =
-            Pattern.compile("Index(?:\\s+Only)? Scan.*? on \\w+ using (\\w+)");
+    private static final Pattern PG_COST_PATTERN = Pattern.compile("cost=[\\d.]+\\.\\.([\\d.]+)\\s+rows=(\\d+)");
+    private static final Pattern PG_ACTUAL_PATTERN = Pattern
+            .compile("actual time=[\\d.]+\\.\\.([\\d.]+)\\s+rows=(\\d+)");
+    private static final Pattern SEQ_SCAN_PATTERN = Pattern.compile("Seq Scan on (\\w+)");
+    private static final Pattern INDEX_SCAN_PATTERN = Pattern
+            .compile("Index(?:\\s+Only)? Scan.*? on \\w+ using (\\w+)");
 
+    @SuppressFBWarnings(value = "SQL_NONCONSTANT_STRING_PASSED_TO_EXECUTE", justification = "explainSql is built from a trusted stored query prefixed with EXPLAIN; no user-controlled injection path")
     public ExecutionPlan runLivePlan(QueryHistory history, DbConnection connection, String sql, String queryType) {
         boolean isReadOnly = "SELECT".equalsIgnoreCase(queryType);
         boolean canAnalyze = isReadOnly || !Boolean.TRUE.equals(connection.getReadOnlyEnforced());
@@ -45,10 +44,11 @@ public class QueryExecutionPlanService {
 
         List<String> planLines = new ArrayList<>();
         try (Connection conn = dbConnectionService.openConnection(connection);
-             Statement stmt = conn.createStatement()) {
+                Statement stmt = conn.createStatement()) {
 
             if (!canAnalyze) {
-                log.info("Connection {} is read-only enforced and query is non-SELECT; running plain EXPLAIN", connection.getId());
+                log.info("Connection {} is read-only enforced and query is non-SELECT; running plain EXPLAIN",
+                        connection.getId());
             }
 
             try (ResultSet rs = stmt.executeQuery(explainSql)) {
@@ -64,7 +64,8 @@ public class QueryExecutionPlanService {
         return parsePlan(history, connection, planText, canAnalyze);
     }
 
-    private ExecutionPlan parsePlan(QueryHistory history, DbConnection connection, String planText, boolean isAnalyzed) {
+    private ExecutionPlan parsePlan(QueryHistory history, DbConnection connection, String planText,
+            boolean isAnalyzed) {
         Double estimatedCost = null;
         Long actualRows = null;
         Double actualTimeMs = null;

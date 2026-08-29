@@ -4,7 +4,6 @@ import java.time.Instant;
 
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-import org.springframework.data.annotation.CreatedBy;
 
 import groovy.transform.builder.Builder;
 import jakarta.persistence.Column;
@@ -23,7 +22,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "users",uniqueConstraints = {@jakarta.persistence.UniqueConstraint(columnNames = {"keycloak_user_id", "username", "email"})})
+@Table(name = "users", uniqueConstraints = {@jakarta.persistence.UniqueConstraint(columnNames = {"keycloak_user_id", "username", "email"})})
 public class User {
 
     @Id

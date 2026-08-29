@@ -1,14 +1,16 @@
 package com.example.querysence.model.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
 import java.time.LocalDateTime;
 import java.util.List;
 
-@Data
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Getter
+@Setter
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
@@ -19,9 +21,9 @@ public class QueryAnalysisResponse {
     private ComplexityReport complexity;
     private List<IndexSuggestionResponse> indexSuggestions;
     private List<String> warnings;
-    private com.example.querysence.model.QueryParseResponse parseResult;
+    private QueryParseResponse parseResult;
 
-    //  null if analyzed statically (no dbConnectionId supplied in the request)
+    // null if analyzed statically (no dbConnectionId supplied in the request)
     private Long dbConnectionId;
     private ExecutionPlanDto executionPlan;
 

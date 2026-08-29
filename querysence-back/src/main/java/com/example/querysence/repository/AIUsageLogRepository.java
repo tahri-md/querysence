@@ -6,12 +6,10 @@ import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-import org.springframework.stereotype.Repository;
 
 import com.example.querysence.model.AIUsageLog;
 import com.example.querysence.model.User;
 
-@Repository
 public interface AIUsageLogRepository extends JpaRepository<AIUsageLog, Long> {
 
         @Query("SELECT COUNT(al) FROM AIUsageLog al WHERE al.user = :user AND al.createdAt >= :since")

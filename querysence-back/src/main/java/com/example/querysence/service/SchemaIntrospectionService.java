@@ -169,7 +169,7 @@ public class SchemaIntrospectionService {
                                 .nullFraction(stat != null ? stat.getNullFraction() : null)
                                 .statsUpdatedAt(stat != null ? LocalDateTime.now() : null)
                                 .build();
-                        statsByKey.values().stream().filter(e->e.getTableName().equals(tableName)).findFirst().ifPresent(s->table.setEstimatedRows(s.getRowCount()));
+                        statsByKey.values().stream().filter(e -> e.getTableName().equals(tableName)).findFirst().ifPresent(s -> table.setEstimatedRows(s.getRowCount()));
 
                         table.getColumns().add(column);
                         columnCount++;

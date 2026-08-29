@@ -1,23 +1,5 @@
 package com.example.querysence.parser;
 
-import com.example.querysence.exception.*;
-
-import lombok.extern.slf4j.Slf4j;
-import net.sf.jsqlparser.JSQLParserException;
-import net.sf.jsqlparser.expression.*;
-import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
-import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
-import net.sf.jsqlparser.expression.operators.relational.*;
-import net.sf.jsqlparser.parser.CCJSqlParserUtil;
-import net.sf.jsqlparser.schema.Column;
-import net.sf.jsqlparser.schema.Table;
-import net.sf.jsqlparser.statement.Statement;
-import net.sf.jsqlparser.statement.delete.Delete;
-import net.sf.jsqlparser.statement.insert.Insert;
-import net.sf.jsqlparser.statement.select.*;
-import net.sf.jsqlparser.statement.update.Update;
-import org.springframework.stereotype.Component;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -25,26 +7,58 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
+import org.springframework.stereotype.Component;
+
+import com.example.querysence.exception.InvalidSQLException;
+
+import lombok.extern.slf4j.Slf4j;
+import net.sf.jsqlparser.JSQLParserException;
+import net.sf.jsqlparser.expression.BinaryExpression;
+import net.sf.jsqlparser.expression.CaseExpression;
+import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.Function;
+import net.sf.jsqlparser.expression.JdbcParameter;
+import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
+import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
+import net.sf.jsqlparser.expression.operators.relational.Between;
+import net.sf.jsqlparser.expression.operators.relational.ComparisonOperator;
+import net.sf.jsqlparser.expression.operators.relational.EqualsTo;
+import net.sf.jsqlparser.expression.operators.relational.ExistsExpression;
+import net.sf.jsqlparser.expression.operators.relational.InExpression;
+import net.sf.jsqlparser.expression.operators.relational.IsNullExpression;
+import net.sf.jsqlparser.expression.operators.relational.LikeExpression;
+import net.sf.jsqlparser.parser.CCJSqlParserUtil;
+import net.sf.jsqlparser.schema.Column;
+import net.sf.jsqlparser.schema.Table;
+import net.sf.jsqlparser.statement.Statement;
+import net.sf.jsqlparser.statement.delete.Delete;
+import net.sf.jsqlparser.statement.insert.Insert;
+import net.sf.jsqlparser.statement.select.AllColumns;
+import net.sf.jsqlparser.statement.select.AllTableColumns;
+import net.sf.jsqlparser.statement.select.FromItem;
+import net.sf.jsqlparser.statement.select.Join;
+import net.sf.jsqlparser.statement.select.PlainSelect;
+import net.sf.jsqlparser.statement.select.Select;
+import net.sf.jsqlparser.statement.select.SelectItem;
+import net.sf.jsqlparser.statement.update.Update;
+
 @Component
 @Slf4j
 public class SQLParserEngine {
 
     private static final Set<String> AGGREGATE_FUNCTIONS = new HashSet<>(Arrays.asList(
-        "COUNT", "SUM", "AVG", "MIN", "MAX", "STDDEV", "STDDEV_POP", "STDDEV_SAMP",
-        "VARIANCE", "VAR_POP", "VAR_SAMP", "GROUP_CONCAT", "STRING_AGG", "ARRAY_AGG", "JSON_AGG",
-        "BOOL_AND", "BOOL_OR"
-    ));
+            "COUNT", "SUM", "AVG", "MIN", "MAX", "STDDEV", "STDDEV_POP", "STDDEV_SAMP",
+            "VARIANCE", "VAR_POP", "VAR_SAMP", "GROUP_CONCAT", "STRING_AGG", "ARRAY_AGG", "JSON_AGG",
+            "BOOL_AND", "BOOL_OR"));
 
     private static final Set<String> WINDOW_FUNCTIONS = new HashSet<>(Arrays.asList(
-        "ROW_NUMBER", "RANK", "DENSE_RANK", "PERCENT_RANK", "CUME_DIST", "NTILE",
-        "LAG", "LEAD", "FIRST_VALUE", "LAST_VALUE", "NTH_VALUE"
-    ));
+            "ROW_NUMBER", "RANK", "DENSE_RANK", "PERCENT_RANK", "CUME_DIST", "NTILE",
+            "LAG", "LEAD", "FIRST_VALUE", "LAST_VALUE", "NTH_VALUE"));
 
     private static final Set<String> SCALAR_FUNCTIONS = new HashSet<>(Arrays.asList(
-        "LOWER", "UPPER", "ROUND", "ABS", "TRIM", "LTRIM", "RTRIM", "COALESCE",
-        "CONCAT", "LENGTH", "SUBSTRING", "SUBSTR", "REPLACE", "CAST", "CEIL", "FLOOR",
-        "LEFT", "RIGHT", "POSITION", "NOW", "CURRENT_DATE", "CURRENT_TIMESTAMP"
-    ));
+            "LOWER", "UPPER", "ROUND", "ABS", "TRIM", "LTRIM", "RTRIM", "COALESCE",
+            "CONCAT", "LENGTH", "SUBSTRING", "SUBSTR", "REPLACE", "CAST", "CEIL", "FLOOR",
+            "LEFT", "RIGHT", "POSITION", "NOW", "CURRENT_DATE", "CURRENT_TIMESTAMP"));
 
     public ParsedQuery parse(String sql) {
         try {
@@ -117,7 +131,8 @@ public class SQLParserEngine {
                         .value(tableText)
                         .build());
             } else {
-                ParsedQuery.SelectExpression selectExpression = parseSelectExpression(expression, alias, functions, aggregates);
+                ParsedQuery.SelectExpression selectExpression = parseSelectExpression(expression, alias, functions,
+                        aggregates);
                 selectExpressions.add(selectExpression);
                 columns.add(expression != null ? expression.toString() : item.toString());
             }
@@ -130,7 +145,7 @@ public class SQLParserEngine {
 
         // Parse FROM clause
         List<String> tables = new ArrayList<>();
-        java.util.Map<String,String> aliasMap = new java.util.HashMap<>();
+        java.util.Map<String, String> aliasMap = new java.util.HashMap<>();
         if (plainSelect.getFromItem() != null) {
             extractTables(plainSelect.getFromItem(), tables, builder, aliasMap);
         }
@@ -197,9 +212,9 @@ public class SQLParserEngine {
     }
 
     private ParsedQuery.SelectExpression parseSelectExpression(Expression expression,
-                                                              String alias,
-                                                              List<ParsedQuery.FunctionInfo> functions,
-                                                              List<String> aggregateNames) {
+            String alias,
+            List<ParsedQuery.FunctionInfo> functions,
+            List<String> aggregateNames) {
         if (expression == null) {
             return ParsedQuery.SelectExpression.builder()
                     .type(ParsedQuery.SelectExpressionType.UNKNOWN)
@@ -209,7 +224,8 @@ public class SQLParserEngine {
 
         if (expression instanceof Function function) {
             collectFunctionUsage(function, functions, aggregateNames);
-            List<ParsedQuery.SelectExpression> children = parseExpressionChildren(expression, functions, aggregateNames);
+            List<ParsedQuery.SelectExpression> children = parseExpressionChildren(expression, functions,
+                    aggregateNames);
             return ParsedQuery.SelectExpression.builder()
                     .type(ParsedQuery.SelectExpressionType.FUNCTION)
                     .text(expression.toString())
@@ -222,12 +238,15 @@ public class SQLParserEngine {
         if (expression instanceof CaseExpression caseExpression) {
             List<ParsedQuery.SelectExpression> children = new ArrayList<>();
             if (caseExpression.getSwitchExpression() != null) {
-                children.add(parseSelectExpression(caseExpression.getSwitchExpression(), null, functions, aggregateNames));
+                children.add(
+                        parseSelectExpression(caseExpression.getSwitchExpression(), null, functions, aggregateNames));
             }
             if (caseExpression.getWhenClauses() != null) {
                 caseExpression.getWhenClauses().forEach(whenClause -> {
-                    children.add(parseSelectExpression(whenClause.getWhenExpression(), null, functions, aggregateNames));
-                    children.add(parseSelectExpression(whenClause.getThenExpression(), null, functions, aggregateNames));
+                    children.add(
+                            parseSelectExpression(whenClause.getWhenExpression(), null, functions, aggregateNames));
+                    children.add(
+                            parseSelectExpression(whenClause.getThenExpression(), null, functions, aggregateNames));
                 });
             }
             children.add(parseSelectExpression(caseExpression.getElseExpression(), null, functions, aggregateNames));
@@ -273,7 +292,8 @@ public class SQLParserEngine {
                     .type(ParsedQuery.SelectExpressionType.PARENTHESIZED)
                     .text(expression.toString())
                     .alias(alias)
-                    .children(inner == null ? List.of() : List.of(parseSelectExpression(inner, null, functions, aggregateNames)))
+                    .children(inner == null ? List.of()
+                            : List.of(parseSelectExpression(inner, null, functions, aggregateNames)))
                     .build();
         }
 
@@ -293,8 +313,8 @@ public class SQLParserEngine {
     }
 
     private List<ParsedQuery.SelectExpression> parseExpressionChildren(Expression expression,
-                                                                      List<ParsedQuery.FunctionInfo> functions,
-                                                                      List<String> aggregateNames) {
+            List<ParsedQuery.FunctionInfo> functions,
+            List<String> aggregateNames) {
         List<ParsedQuery.SelectExpression> children = new ArrayList<>();
         if (expression == null) {
             return children;
@@ -316,7 +336,8 @@ public class SQLParserEngine {
                     }
                 }
             }
-        } catch (NoSuchMethodException ignored) {
+        } catch (NoSuchMethodException e) {
+            log.debug("getParameters method not found on function {}: {}", function.getClass().getSimpleName(), e.getMessage());
         } catch (Exception e) {
             log.debug("Failed to inspect expression children: {}", e.getMessage());
         }
@@ -371,7 +392,7 @@ public class SQLParserEngine {
             if (value instanceof Expression innerExpression) {
                 return innerExpression;
             }
-        } catch (Exception ignored) {
+        } catch (ReflectiveOperationException ignored) {
         }
         return null;
     }
@@ -383,7 +404,7 @@ public class SQLParserEngine {
             if (value != null) {
                 return value.toString();
             }
-        } catch (Exception ignored) {
+        } catch (ReflectiveOperationException ignored) {
         }
         return expression.getClass().getSimpleName();
     }
@@ -392,15 +413,16 @@ public class SQLParserEngine {
         if (column == null) {
             return null;
         }
-        if (column.getTable() != null && column.getTable().getName() != null && !column.getTable().getName().isEmpty()) {
+        if (column.getTable() != null && column.getTable().getName() != null
+                && !column.getTable().getName().isEmpty()) {
             return column.getTable().getName() + "." + column.getColumnName();
         }
         return column.getColumnName();
     }
 
     private void collectFunctionsFromExpression(Expression expression,
-                                                List<ParsedQuery.FunctionInfo> functions,
-                                                List<String> aggregateNames) {
+            List<ParsedQuery.FunctionInfo> functions,
+            List<String> aggregateNames) {
         if (expression == null) {
             return;
         }
@@ -436,8 +458,8 @@ public class SQLParserEngine {
     }
 
     private void collectFunctionUsage(Function function,
-                                     List<ParsedQuery.FunctionInfo> functions,
-                                     List<String> aggregateNames) {
+            List<ParsedQuery.FunctionInfo> functions,
+            List<String> aggregateNames) {
         if (function == null) {
             return;
         }
@@ -462,15 +484,16 @@ public class SQLParserEngine {
             java.lang.reflect.Method parametersMethod = function.getClass().getMethod("getParameters");
             Object parameters = parametersMethod.invoke(function);
             extractExpressionListFromObject(parameters, functions, aggregateNames);
-        } catch (NoSuchMethodException ignored) {
+        } catch (NoSuchMethodException e) {
+            log.debug("getParameters method not found on {}: {}", function.getClass().getSimpleName(), e.getMessage());
         } catch (Exception e) {
             log.debug("Failed to inspect function parameters for nested functions: {}", e.getMessage());
         }
     }
 
     private void extractExpressionListFromObject(Object candidate,
-                                                 List<ParsedQuery.FunctionInfo> functions,
-                                                 List<String> aggregateNames) {
+            List<ParsedQuery.FunctionInfo> functions,
+            List<String> aggregateNames) {
         if (candidate == null) {
             return;
         }
@@ -478,7 +501,7 @@ public class SQLParserEngine {
         try {
             java.lang.reflect.Method expressionsMethod = candidate.getClass().getMethod("getExpressions");
             Object expressions = expressionsMethod.invoke(candidate);
-            if (expressions instanceof java.util.List<?> list) {
+            if (expressions instanceof List<?> list) {
                 for (Object item : list) {
                     if (item instanceof Expression itemExpression) {
                         collectFunctionsFromExpression(itemExpression, functions, aggregateNames);
@@ -524,7 +547,8 @@ public class SQLParserEngine {
         return ParsedQuery.FunctionCategory.CUSTOM;
     }
 
-    private void extractTables(FromItem fromItem, List<String> tables, ParsedQuery.ParsedQueryBuilder builder, java.util.Map<String,String> aliasMap) {
+    private void extractTables(FromItem fromItem, List<String> tables, ParsedQuery.ParsedQueryBuilder builder,
+            java.util.Map<String, String> aliasMap) {
         if (fromItem instanceof Table table) {
             tables.add(table.getName());
             if (table.getAlias() != null && table.getAlias().getName() != null) {
@@ -535,8 +559,9 @@ public class SQLParserEngine {
             try {
                 ParsedQuery subquery = parse(fromItem.toString());
                 List<ParsedQuery> subqueries = builder.build().getSubqueries();
-                if (subqueries == null)
+                if (subqueries == null) {
                     subqueries = new ArrayList<>();
+                }
                 subqueries.add(subquery);
                 builder.subqueries(subqueries);
                 if (fromItem.getAlias() != null && fromItem.getAlias().getName() != null) {
@@ -548,16 +573,17 @@ public class SQLParserEngine {
         }
     }
 
-    private ParsedQuery.JoinInfo parseJoin(Join join, java.util.Map<String,String> aliasMap) {
+    private ParsedQuery.JoinInfo parseJoin(Join join, java.util.Map<String, String> aliasMap) {
         String joinType = "INNER";
-        if (join.isLeft())
+        if (join.isLeft()) {
             joinType = "LEFT";
-        else if (join.isRight())
+        } else if (join.isRight()) {
             joinType = "RIGHT";
-        else if (join.isFull())
+        } else if (join.isFull()) {
             joinType = "FULL";
-        else if (join.isCross())
+        } else if (join.isCross()) {
             joinType = "CROSS";
+        }
 
         String tableName = "";
         String alias = "";
@@ -585,12 +611,10 @@ public class SQLParserEngine {
             // fallback: attempt to parse whatever the fromItem string is
             try {
                 ParsedQuery pq = parse(fromItem.toString());
-                if (pq != null) {
-                    subquery = pq;
-                    tableName = fromItem.getAlias() != null ? fromItem.getAlias().getName() : "";
-                }
+                subquery = pq;
+                tableName = fromItem.getAlias() != null ? fromItem.getAlias().getName() : "";
             } catch (Exception e) {
-                // ignore
+                log.debug("Skipping non-subquery from-item: {}", e.getMessage());
             }
         }
 
@@ -616,7 +640,9 @@ public class SQLParserEngine {
     }
 
     private void extractJoinKeyPairs(Expression expr, List<ParsedQuery.JoinKey> keys) {
-        if (expr == null) return;
+        if (expr == null) {
+            return;
+        }
 
         // Unwrap parentheses
         if (expr.getClass().getSimpleName().equals("Parenthesis")) {
@@ -624,7 +650,7 @@ public class SQLParserEngine {
                 Expression inner = (Expression) expr.getClass().getMethod("getExpression").invoke(expr);
                 extractJoinKeyPairs(inner, keys);
                 return;
-            } catch (Exception ignored) {
+            } catch (ReflectiveOperationException ignored) {
             }
         }
 
@@ -632,12 +658,14 @@ public class SQLParserEngine {
             Expression l = eq.getLeftExpression();
             Expression r = eq.getRightExpression();
             if (l instanceof Column lc && r instanceof Column rc) {
-                String left = lc.getTable() != null && lc.getTable().getName() != null && !lc.getTable().getName().isEmpty()
-                        ? lc.getTable().getName() + "." + lc.getColumnName()
-                        : lc.getColumnName();
-                String right = rc.getTable() != null && rc.getTable().getName() != null && !rc.getTable().getName().isEmpty()
-                        ? rc.getTable().getName() + "." + rc.getColumnName()
-                        : rc.getColumnName();
+                String left = lc.getTable() != null && lc.getTable().getName() != null
+                        && !lc.getTable().getName().isEmpty()
+                                ? lc.getTable().getName() + "." + lc.getColumnName()
+                                : lc.getColumnName();
+                String right = rc.getTable() != null && rc.getTable().getName() != null
+                        && !rc.getTable().getName().isEmpty()
+                                ? rc.getTable().getName() + "." + rc.getColumnName()
+                                : rc.getColumnName();
                 keys.add(new ParsedQuery.JoinKey(left, right));
             }
         } else if (expr instanceof AndExpression and) {
@@ -646,12 +674,10 @@ public class SQLParserEngine {
         } else if (expr instanceof OrExpression or) {
             extractJoinKeyPairs(or.getLeftExpression(), keys);
             extractJoinKeyPairs(or.getRightExpression(), keys);
-        } else if (expr instanceof BinaryExpression be) {
-            // try to inspect equals-like binary expressions
-            if (be instanceof EqualsTo) {
-                extractJoinKeyPairs((EqualsTo) be, keys);
-            }
+        } else if (expr instanceof EqualsTo equalsTo) {
+            extractJoinKeyPairs(equalsTo, keys);
         }
+
     }
 
     private ParsedQuery.Condition parseWhereExpression(Expression expression,
@@ -666,7 +692,7 @@ public class SQLParserEngine {
             try {
                 Expression innerExpr = (Expression) expression.getClass().getMethod("getExpression").invoke(expression);
                 return parseWhereExpression(innerExpr, subqueries, depth);
-            } catch (Exception e) {
+            } catch (ReflectiveOperationException e) {
                 log.warn("Failed to extract inner expression from parenthesis: {}", e.getMessage());
             }
         }
@@ -699,8 +725,7 @@ public class SQLParserEngine {
                         col.getTable() != null ? col.getTable().getName() : "",
                         operator,
                         value,
-                        isParameterized
-                );
+                        isParameterized);
             }
 
         } else if (expression instanceof InExpression in) {
@@ -709,7 +734,8 @@ public class SQLParserEngine {
                 boolean isParameterized = false;
                 ParsedQuery subqueryRef = null;
 
-                // Try to read items list via reflection (works across different jsqlparser versions)
+                // Try to read items list via reflection (works across different jsqlparser
+                // versions)
                 try {
                     java.lang.reflect.Method m = in.getClass().getMethod("getRightItemsList");
                     Object itemsList = m.invoke(in);
@@ -717,7 +743,7 @@ public class SQLParserEngine {
                         try {
                             java.lang.reflect.Method ge = itemsList.getClass().getMethod("getExpressions");
                             Object rawList = ge.invoke(itemsList);
-                            if (rawList instanceof java.util.List<?> list) {
+                            if (rawList instanceof List<?> list) {
                                 for (Object o : list) {
                                     if (o instanceof Expression e) {
                                         if (e instanceof JdbcParameter) {
@@ -757,8 +783,7 @@ public class SQLParserEngine {
                         col.getTable() != null ? col.getTable().getName() : "",
                         values,
                         isParameterized,
-                        subqueryRef
-                );
+                        subqueryRef);
             } else {
                 // if left is not a column, still check for subselect on right
                 if (in.getRightExpression() instanceof Select subSelect) {
@@ -782,8 +807,7 @@ public class SQLParserEngine {
                         col.getTable() != null ? col.getTable().getName() : "",
                         startVal,
                         endVal,
-                        isParameterized
-                );
+                        isParameterized);
             }
 
         } else if (expression instanceof LikeExpression like) {
@@ -796,8 +820,7 @@ public class SQLParserEngine {
                         col.getColumnName(),
                         col.getTable() != null ? col.getTable().getName() : "",
                         pattern,
-                        isParameterized
-                );
+                        isParameterized);
             }
 
         } else if (expression instanceof IsNullExpression isNull) {
@@ -805,17 +828,15 @@ public class SQLParserEngine {
                 return new ParsedQuery.IsNullCondition(
                         col.getColumnName(),
                         col.getTable() != null ? col.getTable().getName() : "",
-                        isNull.isNot()
-                );
+                        isNull.isNot());
             }
 
-        } else if (expression instanceof ExistsExpression exists) {
-            if (exists.getRightExpression() instanceof Select subSelect) {
-                ParsedQuery subquery = parse(subSelect.toString());
-                subquery.setSubqueryDepth(depth + 1);
-                subqueries.add(subquery);
-                return new ParsedQuery.ExistsCondition(subquery);
-            }
+        } else if (expression instanceof ExistsExpression exists
+                && exists.getRightExpression() instanceof Select subSelect) {
+            ParsedQuery subquery = parse(subSelect.toString());
+            subquery.setSubqueryDepth(depth + 1);
+            subqueries.add(subquery);
+            return new ParsedQuery.ExistsCondition(subquery);
         }
 
         return null;
