@@ -299,12 +299,15 @@ public class ComplexityAnalyzerService {
     }
 
     private ComplexityReport.Level determineLevel(int score) {
-        if (score <= 25)
+        if (score <= 25) {
             return ComplexityReport.Level.LOW;
-        if (score <= 50)
+        }
+        if (score <= 50) {
             return ComplexityReport.Level.MEDIUM;
-        if (score <= 75)
+        }
+        if (score <= 75) {
             return ComplexityReport.Level.HIGH;
+        }
         return ComplexityReport.Level.CRITICAL;
     }
 

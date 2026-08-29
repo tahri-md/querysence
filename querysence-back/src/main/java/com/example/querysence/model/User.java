@@ -22,7 +22,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "users",uniqueConstraints = {@jakarta.persistence.UniqueConstraint(columnNames = {"keycloak_user_id", "username", "email"})})
+@Table(name = "users", uniqueConstraints = {@jakarta.persistence.UniqueConstraint(columnNames = {"keycloak_user_id", "username", "email"})})
 public class User {
 
     @Id

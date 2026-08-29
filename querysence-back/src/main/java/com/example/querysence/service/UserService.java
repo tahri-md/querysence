@@ -17,7 +17,7 @@ public class UserService {
     private final UserRepository userRepository;
 
     @Transactional
-    public User getOrCreateUser(String keycloakUserId,String username,String email) {
+    public User getOrCreateUser(String keycloakUserId, String username, String email) {
 
         return userRepository
                 .findByKeycloakUserId(keycloakUserId)

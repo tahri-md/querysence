@@ -499,7 +499,7 @@ public class SQLParserEngine {
         try {
             java.lang.reflect.Method expressionsMethod = candidate.getClass().getMethod("getExpressions");
             Object expressions = expressionsMethod.invoke(candidate);
-            if (expressions instanceof java.util.List<?> list) {
+            if (expressions instanceof List<?> list) {
                 for (Object item : list) {
                     if (item instanceof Expression itemExpression) {
                         collectFunctionsFromExpression(itemExpression, functions, aggregateNames);
@@ -557,8 +557,9 @@ public class SQLParserEngine {
             try {
                 ParsedQuery subquery = parse(fromItem.toString());
                 List<ParsedQuery> subqueries = builder.build().getSubqueries();
-                if (subqueries == null)
+                if (subqueries == null) {
                     subqueries = new ArrayList<>();
+                }
                 subqueries.add(subquery);
                 builder.subqueries(subqueries);
                 if (fromItem.getAlias() != null && fromItem.getAlias().getName() != null) {
@@ -572,14 +573,15 @@ public class SQLParserEngine {
 
     private ParsedQuery.JoinInfo parseJoin(Join join, java.util.Map<String, String> aliasMap) {
         String joinType = "INNER";
-        if (join.isLeft())
+        if (join.isLeft()) {
             joinType = "LEFT";
-        else if (join.isRight())
+        } else if (join.isRight()) {
             joinType = "RIGHT";
-        else if (join.isFull())
+        } else if (join.isFull()) {
             joinType = "FULL";
-        else if (join.isCross())
+        } else if (join.isCross()) {
             joinType = "CROSS";
+        }
 
         String tableName = "";
         String alias = "";
@@ -612,7 +614,7 @@ public class SQLParserEngine {
                     tableName = fromItem.getAlias() != null ? fromItem.getAlias().getName() : "";
                 }
             } catch (Exception e) {
-                // ignore
+                log.debug("Skipping non-subquery from-item: {}", e.getMessage());
             }
         }
 
@@ -638,8 +640,9 @@ public class SQLParserEngine {
     }
 
     private void extractJoinKeyPairs(Expression expr, List<ParsedQuery.JoinKey> keys) {
-        if (expr == null)
+        if (expr == null) {
             return;
+        }
 
         // Unwrap parentheses
         if (expr.getClass().getSimpleName().equals("Parenthesis")) {
@@ -671,12 +674,10 @@ public class SQLParserEngine {
         } else if (expr instanceof OrExpression or) {
             extractJoinKeyPairs(or.getLeftExpression(), keys);
             extractJoinKeyPairs(or.getRightExpression(), keys);
-        } else if (expr instanceof BinaryExpression be) {
-            // try to inspect equals-like binary expressions
-            if (be instanceof EqualsTo) {
-                extractJoinKeyPairs((EqualsTo) be, keys);
-            }
+        } else if (expr instanceof EqualsTo equalsTo) {
+            extractJoinKeyPairs(equalsTo, keys);
         }
+
     }
 
     private ParsedQuery.Condition parseWhereExpression(Expression expression,
@@ -742,7 +743,7 @@ public class SQLParserEngine {
                         try {
                             java.lang.reflect.Method ge = itemsList.getClass().getMethod("getExpressions");
                             Object rawList = ge.invoke(itemsList);
-                            if (rawList instanceof java.util.List<?> list) {
+                            if (rawList instanceof List<?> list) {
                                 for (Object o : list) {
                                     if (o instanceof Expression e) {
                                         if (e instanceof JdbcParameter) {
@@ -830,13 +831,12 @@ public class SQLParserEngine {
                         isNull.isNot());
             }
 
-        } else if (expression instanceof ExistsExpression exists) {
-            if (exists.getRightExpression() instanceof Select subSelect) {
-                ParsedQuery subquery = parse(subSelect.toString());
-                subquery.setSubqueryDepth(depth + 1);
-                subqueries.add(subquery);
-                return new ParsedQuery.ExistsCondition(subquery);
-            }
+        } else if (expression instanceof ExistsExpression exists
+                && exists.getRightExpression() instanceof Select subSelect) {
+            ParsedQuery subquery = parse(subSelect.toString());
+            subquery.setSubqueryDepth(depth + 1);
+            subqueries.add(subquery);
+            return new ParsedQuery.ExistsCondition(subquery);
         }
 
         return null;

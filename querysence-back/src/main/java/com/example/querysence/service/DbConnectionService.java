@@ -71,8 +71,9 @@ public class DbConnectionService {
         public List<DbConnectionDto> listByProject(Long projectId, String keycloakUserId) {
                 User user = userRepository.findByKeycloakUserId(keycloakUserId)
                                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-                Project project = projectRepository.findByIdAndOwner(projectId, user)
-                                .orElseThrow(() -> new ResourceNotFoundException("Project", "id", projectId));
+                projectRepository.findByIdAndOwner(projectId, user)
+
+                		.orElseThrow(() -> new ResourceNotFoundException("Project", "id", projectId));
                 return dbConnectionRepository.findByProjectId(projectId).stream()
                                 .map(this::mapToDto)
                                 .toList();
@@ -82,8 +83,9 @@ public class DbConnectionService {
         public void delete(Long projectId, Long connectionId, String keycloakUserId) {
                 User user = userRepository.findByKeycloakUserId(keycloakUserId)
                                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-                Project project = projectRepository.findByIdAndOwner(projectId, user)
-                                .orElseThrow(() -> new ResourceNotFoundException("Project", "id", projectId));
+                projectRepository.findByIdAndOwner(projectId, user)
+
+                		.orElseThrow(() -> new ResourceNotFoundException("Project", "id", projectId));
                 DbConnection connection = dbConnectionRepository.findByIdAndProjectId(connectionId, projectId)
                                 .orElseThrow(() -> new ResourceNotFoundException("DbConnection", "id", connectionId));
 
@@ -94,8 +96,9 @@ public class DbConnectionService {
         public TestConnectionResponse testConnection(Long projectId, Long connectionId, String keycloakUserId) {
                 User user = userRepository.findByKeycloakUserId(keycloakUserId)
                                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-                Project project = projectRepository.findByIdAndOwner(projectId, user)
-                                .orElseThrow(() -> new ResourceNotFoundException("Project", "id", projectId));
+                projectRepository.findByIdAndOwner(projectId, user)
+
+                		.orElseThrow(() -> new ResourceNotFoundException("Project", "id", projectId));
 
                 DbConnection connection = dbConnectionRepository.findByIdAndProjectId(connectionId, projectId)
                                 .orElseThrow(() -> new ResourceNotFoundException("DbConnection", "id", connectionId));

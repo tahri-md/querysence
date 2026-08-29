@@ -312,11 +312,9 @@ public class SchemaManagementService {
                                                 .table(table)
                                                 .columnName(col.getColumnName())
                                                 .dataType(col.getDataType())
-                                                .isNullable(col.getIsNullable() != null ? col.getIsNullable() : true)
-                                                .isPrimaryKey(col.getIsPrimaryKey() != null ? col.getIsPrimaryKey()
-                                                                : false)
-                                                .isForeignKey(col.getIsForeignKey() != null ? col.getIsForeignKey()
-                                                                : false)
+                                                .isNullable(java.util.Objects.requireNonNullElse(col.getIsNullable(), true))
+                                                .isPrimaryKey(java.util.Objects.requireNonNullElse(col.getIsPrimaryKey(), false))
+                                                .isForeignKey(java.util.Objects.requireNonNullElse(col.getIsForeignKey(), false))
                                                 .referencesTable(col.getReferencesTable())
                                                 .referencesColumn(col.getReferencesColumn())
                                                 .build();
@@ -330,7 +328,7 @@ public class SchemaManagementService {
                                                 .table(table)
                                                 .indexName(idx.getIndexName())
                                                 .columns(idx.getColumns())
-                                                .isUnique(idx.getIsUnique() != null ? idx.getIsUnique() : false)
+                                                .isUnique(java.util.Objects.requireNonNullElse(idx.getIsUnique(), false))
                                                 .indexType(idx.getIndexType() != null ? idx.getIndexType() : "BTREE")
                                                 .build();
                                 table.getIndexes().add(index);
@@ -413,6 +411,7 @@ public class SchemaManagementService {
                                 .build();
         }
 
+        @SuppressWarnings("PMD.UnusedPrivateMethod")
         private SchemaResponse.TableResponse mapTableToResponse(TableDefinition table) {
                 return SchemaResponse.TableResponse.builder()
                                 .id(table.getId())

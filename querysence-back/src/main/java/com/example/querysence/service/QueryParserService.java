@@ -81,6 +81,7 @@ public class QueryParserService {
                 .build();
     }
 
+    @SuppressWarnings("PMD.UnusedPrivateMethod")
     private QueryParseResponse.SelectExpressionResponse mapSelectExpression(ParsedQuery.SelectExpression expression) {
         if (expression == null) {
             return null;

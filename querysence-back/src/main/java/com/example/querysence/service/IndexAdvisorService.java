@@ -241,14 +241,18 @@ public class IndexAdvisorService {
     private String describeComposite(List<String> composite, Set<String> joinCols, Set<String> equalityCols,
             Set<String> rangeCols, Set<String> orderCols) {
         List<String> reasons = new ArrayList<>();
-        if (composite.stream().anyMatch(joinCols::contains))
+        if (composite.stream().anyMatch(joinCols::contains)) {
             reasons.add("JOIN");
-        if (composite.stream().anyMatch(equalityCols::contains))
+        }
+        if (composite.stream().anyMatch(equalityCols::contains)) {
             reasons.add("WHERE equality");
-        if (composite.stream().anyMatch(rangeCols::contains))
+        }
+        if (composite.stream().anyMatch(rangeCols::contains)) {
             reasons.add("WHERE range");
-        if (composite.stream().anyMatch(orderCols::contains))
+        }
+        if (composite.stream().anyMatch(orderCols::contains)) {
             reasons.add("ORDER BY");
+        }
         return "Covers " + String.join(" + ", reasons);
     }
 

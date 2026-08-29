@@ -190,6 +190,7 @@ public class AIService {
         return response;
     }
 
+   @SuppressWarnings("PMD.UnusedFormalParameter")
    private String callAI(String prompt, String username, String feature) {
     int retries = 3;
     while (retries > 0) {
@@ -202,8 +203,10 @@ public class AIService {
         } catch (Exception e) {
             retries--;
             log.warn("AI call failed ({}), retries left {}: {}", feature, retries, e.getMessage());
-            if (retries == 0) throw new AIServiceException(
-                "AI service temporarily unavailable. Please try again later.");
+            if (retries == 0) {
+                throw new AIServiceException(
+                    "AI service temporarily unavailable. Please try again later.");
+            }
             try { Thread.sleep(2000); } catch (InterruptedException ignored) {}
         }
     }
@@ -249,7 +252,9 @@ public class AIService {
             for (var col : table.getColumns()) {
                 sb.append("  - ").append(col.getColumnName())
                   .append(" (").append(col.getDataType()).append(")");
-                if (col.getIsPrimaryKey()) sb.append(" PRIMARY KEY");
+                if (col.getIsPrimaryKey()) {
+                    sb.append(" PRIMARY KEY");
+                }
                 if (col.getIsForeignKey()) {
                     sb.append(" REFERENCES ").append(col.getReferencesTable())
                       .append("(").append(col.getReferencesColumn()).append(")");
@@ -271,7 +276,9 @@ public class AIService {
     }
 
     private String cleanSqlResponse(String response) {
-        if (response == null) return "";
+        if (response == null) {
+            return "";
+        }
         return response
                 .replaceAll("```sql\\s*", "")
                 .replaceAll("```\\s*", "")
@@ -279,7 +286,9 @@ public class AIService {
     }
 
     private String cleanJsonResponse(String response) {
-        if (response == null) return "{}";
+        if (response == null) {
+            return "{}";
+        }
         String cleaned = response
                 .replaceAll("```json\\s*", "")
                 .replaceAll("```\\s*", "")
