@@ -1,7 +1,14 @@
 package com.example.querysence.service;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 
 import com.example.querysence.model.IndexDefinition;
@@ -10,13 +17,8 @@ import com.example.querysence.model.dto.ComplexityReport;
 import com.example.querysence.parser.ParsedQuery;
 import com.example.querysence.repository.SchemaDefinitionRepository;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
@@ -43,7 +45,6 @@ public class ComplexityAnalyzerService {
     private static final int LARGE_TABLE_POINTS = 5;
     private static final int HUGE_TABLE_POINTS = 12;
     private static final int UNINDEXED_FILTER_ON_LARGE_TABLE_POINTS = 10;
-
 
     public ComplexityReport analyze(ParsedQuery parsedQuery) {
         return analyze(parsedQuery, null);
@@ -177,7 +178,7 @@ public class ComplexityAnalyzerService {
             Map<String, Set<String>> existingIndexes = new HashMap<>();
             schemaRepository.findByIdWithFullDetails(schemaId).ifPresent(schema -> {
                 for (TableDefinition table : schema.getTables()) {
-                    String tableName = table.getTableName().toLowerCase();
+                    String tableName = table.getTableName().toLowerCase(Locale.ROOT);
                     tableRowCounts.put(tableName, table.getEstimatedRows() == null ? 0L : table.getEstimatedRows());
                     Set<String> indexedColumns = new HashSet<>();
                     for (IndexDefinition index : table.getIndexes()) {
@@ -194,7 +195,7 @@ public class ComplexityAnalyzerService {
             int tableVolumeScore = 0;
 
             for (String rawTableName : parsedQuery.getTables()) {
-                String tableName = rawTableName.toLowerCase();
+                String tableName = rawTableName.toLowerCase(Locale.ROOT);
                 Long rows = tableRowCounts.get(tableName);
                 if (rows == null) {
                     // Table referenced in the query but not found in the selected schema -
@@ -230,16 +231,16 @@ public class ComplexityAnalyzerService {
             // full-table-scan risk - surface it as both score and a warning.
             Set<String> flaggedTables = new HashSet<>();
             for (ParsedQuery.WhereCondition condition : parsedQuery.getWhereConditions()) {
-                String table = condition.getTable() == null ? "" : condition.getTable().toLowerCase();
+                String table = condition.getTable() == null ? "" : condition.getTable().toLowerCase(Locale.ROOT);
                 if (table.isEmpty() && parsedQuery.getTables().size() == 1) {
-                    table = parsedQuery.getTables().get(0).toLowerCase();
+                    table = parsedQuery.getTables().get(0).toLowerCase(Locale.ROOT);
                 }
                 if (table.isEmpty()) {
                     continue;
                 }
                 Long rows = tableRowCounts.get(table);
                 Set<String> indexed = existingIndexes.getOrDefault(table, Set.of());
-                String column = condition.getColumn() == null ? "" : condition.getColumn().toLowerCase();
+                String column = condition.getColumn() == null ? "" : condition.getColumn().toLowerCase(Locale.ROOT);
                 if (rows != null && rows >= LARGE_TABLE_ROWS && !indexed.contains(column)
                         && flaggedTables.add(table)) {
                     score += UNINDEXED_FILTER_ON_LARGE_TABLE_POINTS;

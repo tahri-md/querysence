@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+import java.util.Locale;
 
 import org.springframework.stereotype.Service;
 
@@ -91,9 +92,10 @@ public class QueryParserService {
                 .alias(expression.getAlias())
                 .operator(expression.getOperator())
                 .value(expression.getValue())
-                .children(expression.getChildren() == null ? null : expression.getChildren().stream()
-                        .map(this::mapSelectExpression)
-                        .toList())
+                .children(expression.getChildren() == null ? null
+                        : expression.getChildren().stream()
+                                .map(this::mapSelectExpression)
+                                .toList())
                 .build();
     }
 
@@ -110,7 +112,7 @@ public class QueryParserService {
 
     private String normalizeSql(String sql) {
         return sql.trim()
-                .toLowerCase()
+                .toLowerCase(Locale.ROOT)
                 .replaceAll("\\s+", " ")
                 .replaceAll("\\s*,\\s*", ",")
                 .replaceAll("\\s*=\\s*", "=");

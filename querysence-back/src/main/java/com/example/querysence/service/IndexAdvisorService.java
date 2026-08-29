@@ -1,7 +1,17 @@
 package com.example.querysence.service;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 
 import com.example.querysence.model.ColumnDefinition;
@@ -11,8 +21,8 @@ import com.example.querysence.model.dto.IndexSuggestionResponse;
 import com.example.querysence.parser.ParsedQuery;
 import com.example.querysence.repository.SchemaDefinitionRepository;
 
-import java.util.*;
-import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor
@@ -33,12 +43,12 @@ public class IndexAdvisorService {
         if (schemaId != null) {
             schemaRepository.findByIdWithFullDetails(schemaId).ifPresent(schema -> {
                 for (TableDefinition table : schema.getTables()) {
-                    String tableName = table.getTableName().toLowerCase();
+                    String tableName = table.getTableName().toLowerCase(Locale.ROOT);
                     tableRowCounts.put(tableName, table.getEstimatedRows());
                     for (ColumnDefinition column : table.getColumns()) {
                         distinctCountsByTable
                                 .computeIfAbsent(tableName, k -> new HashMap<>())
-                                .put(column.getColumnName().toLowerCase(), column.getDistinctCount());
+                                .put(column.getColumnName().toLowerCase(Locale.ROOT), column.getDistinctCount());
                     }
 
                     List<List<String>> indexlists = new ArrayList<>();
@@ -58,18 +68,18 @@ public class IndexAdvisorService {
         Map<String, Set<String>> rangeColumnsByTable = new HashMap<>();
         // Analyze WHERE clause columns
         for (ParsedQuery.WhereCondition condition : parsedQuery.getWhereConditions()) {
-            String table = condition.getTable() == null ? "" : condition.getTable().toLowerCase();
-            String column = condition.getColumn().toLowerCase();
+            String table = condition.getTable() == null ? "" : condition.getTable().toLowerCase(Locale.ROOT);
+            String column = condition.getColumn().toLowerCase(Locale.ROOT);
 
             if (table.isEmpty() && parsedQuery.getTables().size() == 1) {
-                table = parsedQuery.getTables().get(0).toLowerCase();
+                table = parsedQuery.getTables().get(0).toLowerCase(Locale.ROOT);
             }
             if (table.isEmpty()) {
                 log.warn("Could not determine table for WHERE condition: {}", condition);
                 continue;
             }
             boolean range = condition.getOperator() != null
-                    && RANGE_OPERATORS.contains(condition.getOperator().toUpperCase());
+                    && RANGE_OPERATORS.contains(condition.getOperator().toUpperCase(Locale.ROOT));
 
             if (range) {
                 rangeColumnsByTable.computeIfAbsent(table, k -> new LinkedHashSet<>()).add(column);
@@ -82,13 +92,13 @@ public class IndexAdvisorService {
         // Analyze JOIN columns
         Map<String, Set<String>> joinColumnsByTable = new HashMap<>();
         for (ParsedQuery.JoinInfo join : parsedQuery.getJoins()) {
-            String table = join.getTable() == null ? "" : join.getTable().toLowerCase();
+            String table = join.getTable() == null ? "" : join.getTable().toLowerCase(Locale.ROOT);
             if (table.isEmpty()) {
                 log.warn("Could not determine table for JOIN: {}", join);
                 continue;
             }
             for (String col : join.getJoinColumns()) {
-                joinColumnsByTable.computeIfAbsent(table, k -> new LinkedHashSet<>()).add(col.toLowerCase());
+                joinColumnsByTable.computeIfAbsent(table, k -> new LinkedHashSet<>()).add(col.toLowerCase(Locale.ROOT));
             }
         }
 
@@ -97,8 +107,8 @@ public class IndexAdvisorService {
         for (String orderCol : parsedQuery.getOrderByColumns()) {
             // Try to find the table for this column
             for (String table : parsedQuery.getTables()) {
-                orderByColumnsByTable.computeIfAbsent(table.toLowerCase(), k -> new LinkedHashSet<>())
-                        .add(orderCol.toLowerCase());
+                orderByColumnsByTable.computeIfAbsent(table.toLowerCase(Locale.ROOT), k -> new LinkedHashSet<>())
+                        .add(orderCol.toLowerCase(Locale.ROOT));
             }
         }
 
@@ -106,8 +116,8 @@ public class IndexAdvisorService {
         Map<String, Set<String>> groupByColumnsByTable = new HashMap<>();
         for (String groupCol : parsedQuery.getGroupByColumns()) {
             for (String table : parsedQuery.getTables()) {
-                groupByColumnsByTable.computeIfAbsent(table.toLowerCase(), k -> new LinkedHashSet<>())
-                        .add(groupCol.toLowerCase());
+                groupByColumnsByTable.computeIfAbsent(table.toLowerCase(Locale.ROOT), k -> new LinkedHashSet<>())
+                        .add(groupCol.toLowerCase(Locale.ROOT));
             }
         }
 
