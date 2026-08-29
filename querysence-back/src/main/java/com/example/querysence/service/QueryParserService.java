@@ -1,18 +1,19 @@
 package com.example.querysence.service;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Service;
-
-import com.example.querysence.exception.InvalidSQLException;
-import com.example.querysence.model.QueryParseResponse;
-import com.example.querysence.parser.ParsedQuery;
-import com.example.querysence.parser.SQLParserEngine;
-
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
+
+import org.springframework.stereotype.Service;
+
+import com.example.querysence.exception.InvalidSQLException;
+import com.example.querysence.model.dto.QueryParseResponse;
+import com.example.querysence.parser.ParsedQuery;
+import com.example.querysence.parser.SQLParserEngine;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
 @RequiredArgsConstructor

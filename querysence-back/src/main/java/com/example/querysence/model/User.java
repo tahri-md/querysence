@@ -4,7 +4,6 @@ import java.time.Instant;
 
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-import org.springframework.data.annotation.CreatedBy;
 
 import groovy.transform.builder.Builder;
 import jakarta.persistence.Column;

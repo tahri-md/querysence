@@ -14,7 +14,10 @@ import org.springframework.stereotype.Service;
 
 import com.example.querysence.exception.BadRequestException;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 public class DbConnectionCryptoService {
 
     private static final String AES = "AES";

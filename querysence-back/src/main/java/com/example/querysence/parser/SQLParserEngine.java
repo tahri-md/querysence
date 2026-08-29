@@ -1,22 +1,5 @@
 package com.example.querysence.parser;
 
-import com.example.querysence.exception.*;
-
-import lombok.extern.slf4j.Slf4j;
-import net.sf.jsqlparser.JSQLParserException;
-import net.sf.jsqlparser.expression.*;
-import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
-import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
-import net.sf.jsqlparser.expression.operators.relational.*;
-import net.sf.jsqlparser.parser.CCJSqlParserUtil;
-import net.sf.jsqlparser.schema.Column;
-import net.sf.jsqlparser.schema.Table;
-import net.sf.jsqlparser.statement.Statement;
-import net.sf.jsqlparser.statement.delete.Delete;
-import net.sf.jsqlparser.statement.insert.Insert;
-import net.sf.jsqlparser.statement.select.*;
-import net.sf.jsqlparser.statement.update.Update;
-import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -24,6 +7,41 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+
+import org.springframework.stereotype.Component;
+
+import com.example.querysence.exception.InvalidSQLException;
+
+import lombok.extern.slf4j.Slf4j;
+import net.sf.jsqlparser.JSQLParserException;
+import net.sf.jsqlparser.expression.BinaryExpression;
+import net.sf.jsqlparser.expression.CaseExpression;
+import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.Function;
+import net.sf.jsqlparser.expression.JdbcParameter;
+import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
+import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
+import net.sf.jsqlparser.expression.operators.relational.Between;
+import net.sf.jsqlparser.expression.operators.relational.ComparisonOperator;
+import net.sf.jsqlparser.expression.operators.relational.EqualsTo;
+import net.sf.jsqlparser.expression.operators.relational.ExistsExpression;
+import net.sf.jsqlparser.expression.operators.relational.InExpression;
+import net.sf.jsqlparser.expression.operators.relational.IsNullExpression;
+import net.sf.jsqlparser.expression.operators.relational.LikeExpression;
+import net.sf.jsqlparser.parser.CCJSqlParserUtil;
+import net.sf.jsqlparser.schema.Column;
+import net.sf.jsqlparser.schema.Table;
+import net.sf.jsqlparser.statement.Statement;
+import net.sf.jsqlparser.statement.delete.Delete;
+import net.sf.jsqlparser.statement.insert.Insert;
+import net.sf.jsqlparser.statement.select.AllColumns;
+import net.sf.jsqlparser.statement.select.AllTableColumns;
+import net.sf.jsqlparser.statement.select.FromItem;
+import net.sf.jsqlparser.statement.select.Join;
+import net.sf.jsqlparser.statement.select.PlainSelect;
+import net.sf.jsqlparser.statement.select.Select;
+import net.sf.jsqlparser.statement.select.SelectItem;
+import net.sf.jsqlparser.statement.update.Update;
 
 @Component
 @Slf4j
@@ -60,7 +78,7 @@ public class SQLParserEngine {
     }
 
     private ParsedQuery parseStatement(Statement statement, int depth) {
-        ParsedQuery.ParsedQueryBuilder builder = ParsedQuery.builder()
+        ParsedQueryBuilder builder = ParsedQuery.builder()
                 .valid(true)
                 .subqueryDepth(depth);
 
@@ -83,7 +101,7 @@ public class SQLParserEngine {
         return builder.build();
     }
 
-    private void parseSelect(Select select, ParsedQuery.ParsedQueryBuilder builder, int depth) {
+    private void parseSelect(Select select, ParsedQueryBuilder builder, int depth) {
         PlainSelect plainSelect = select.getPlainSelect();
         if (plainSelect == null) {
             return;
@@ -524,7 +542,7 @@ public class SQLParserEngine {
         return ParsedQuery.FunctionCategory.CUSTOM;
     }
 
-    private void extractTables(FromItem fromItem, List<String> tables, ParsedQuery.ParsedQueryBuilder builder, java.util.Map<String,String> aliasMap) {
+    private void extractTables(FromItem fromItem, List<String> tables, ParsedQueryBuilder builder, java.util.Map<String,String> aliasMap) {
         if (fromItem instanceof Table table) {
             tables.add(table.getName());
             if (table.getAlias() != null && table.getAlias().getName() != null) {
@@ -855,7 +873,7 @@ public class SQLParserEngine {
         }
     }
 
-    private void parseInsert(Insert insert, ParsedQuery.ParsedQueryBuilder builder) {
+    private void parseInsert(Insert insert, ParsedQueryBuilder builder) {
         List<String> tables = new ArrayList<>();
         tables.add(insert.getTable().getName());
         builder.tables(tables);
@@ -867,7 +885,7 @@ public class SQLParserEngine {
         builder.columns(columns);
     }
 
-    private void parseUpdate(Update update, ParsedQuery.ParsedQueryBuilder builder) {
+    private void parseUpdate(Update update, ParsedQueryBuilder builder) {
         List<String> tables = new ArrayList<>();
         tables.add(update.getTable().getName());
         builder.tables(tables);
@@ -892,7 +910,7 @@ public class SQLParserEngine {
         builder.subqueries(subqueries);
     }
 
-    private void parseDelete(Delete delete, ParsedQuery.ParsedQueryBuilder builder) {
+    private void parseDelete(Delete delete, ParsedQueryBuilder builder) {
         List<String> tables = new ArrayList<>();
         tables.add(delete.getTable().getName());
         builder.tables(tables);
