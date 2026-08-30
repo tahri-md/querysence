@@ -337,7 +337,7 @@ public class SQLParserEngine {
                 }
             }
         } catch (NoSuchMethodException e) {
-            log.debug("getParameters method not found on function {}: {}", function.getClass().getSimpleName(), e.getMessage());
+            log.debug("getParameters method not found  {}", e.getMessage());
         } catch (Exception e) {
             log.debug("Failed to inspect expression children: {}", e.getMessage());
         }
