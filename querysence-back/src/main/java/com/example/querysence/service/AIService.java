@@ -1,8 +1,15 @@
 package com.example.querysence.service;
 
 
+import java.time.LocalDateTime;
+
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.example.querysence.ai.PromptTemplates;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import com.example.querysence.exception.AIServiceException;
 import com.example.querysence.exception.BadRequestException;
 import com.example.querysence.exception.ResourceNotFoundException;
@@ -20,15 +27,10 @@ import com.example.querysence.repository.SchemaDefinitionRepository;
 import com.example.querysence.repository.UserRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cache.annotation.Cacheable;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -48,8 +50,8 @@ public class AIService {
     @Transactional
     @SuppressFBWarnings(value = "VA_FORMAT_STRING_USES_NEWLINE",
             justification = "\\n in prompt text blocks is intentional for AI prompt formatting")
-    public NLToSQLResponse convertNaturalLanguageToSQL(NLToSQLRequest request, String username) {
-        checkRateLimit(username);
+    public NLToSQLResponse convertNaturalLanguageToSQL(NLToSQLRequest request, String keycloakUserId) {
+        checkRateLimit(keycloakUserId);
 
         String schemaDescription = "";
         String dialect = "POSTGRESQL";
@@ -65,7 +67,7 @@ public class AIService {
                 schemaDescription, request.getQuery(), dialect);
 
         long startTime = System.currentTimeMillis();
-        String generatedSql = callAI(prompt, username, "NL_TO_SQL");
+        String generatedSql = callAI(prompt, "NL_TO_SQL");
         long responseTime = System.currentTimeMillis() - startTime;
 
         generatedSql = cleanSqlResponse(generatedSql);
@@ -79,7 +81,7 @@ public class AIService {
             errorMessage = e.getMessage();
         }
 
-        logUsage(username, "NL_TO_SQL", responseTime);
+        logUsage(keycloakUserId, "NL_TO_SQL", responseTime);
 
         return NLToSQLResponse.builder()
                 .sql(generatedSql)
@@ -94,16 +96,16 @@ public class AIService {
             justification = "\\n in prompt text blocks is intentional for AI prompt formatting")
     @Cacheable(value = "queryExplanations", key = "#sql.hashCode()")
     @Transactional
-    public ExplainResponse explainQuery(String sql, String username) {
-        checkRateLimit(username);
+    public ExplainResponse explainQuery(String sql, String keycloakUserId) {
+        checkRateLimit(keycloakUserId);
 
         String prompt = PromptTemplates.EXPLAIN_SQL_PROMPT.formatted(sql);
 
         long startTime = System.currentTimeMillis();
-        String response = callAI(prompt, username, "EXPLAIN");
+        String response = callAI(prompt, "EXPLAIN");
         long responseTime = System.currentTimeMillis() - startTime;
 
-        logUsage(username, "EXPLAIN", responseTime);
+        logUsage(keycloakUserId, "EXPLAIN", responseTime);
 
         try {
             return objectMapper.readValue(cleanJsonResponse(response), ExplainResponse.class);
@@ -119,8 +121,8 @@ public class AIService {
     @Transactional
     @SuppressFBWarnings(value = "VA_FORMAT_STRING_USES_NEWLINE",
             justification = "\\n in prompt text blocks is intentional for AI prompt formatting")
-    public OptimizationResponse optimizeQuery(String sql, Long schemaId, String username) {
-        checkRateLimit(username);
+    public OptimizationResponse optimizeQuery(String sql, Long schemaId, String keycloakUserId) {
+        checkRateLimit(keycloakUserId);
 
         String schemaDescription = "";
         String tableStats = "No statistics available";
@@ -135,10 +137,10 @@ public class AIService {
         String prompt = PromptTemplates.OPTIMIZE_SQL_PROMPT.formatted(sql, schemaDescription, tableStats);
 
         long startTime = System.currentTimeMillis();
-        String response = callAI(prompt, username, "OPTIMIZE");
+        String response = callAI(prompt, "OPTIMIZE");
         long responseTime = System.currentTimeMillis() - startTime;
 
-        logUsage(username, "OPTIMIZE", responseTime);
+        logUsage(keycloakUserId, "OPTIMIZE", responseTime);
 
         try {
             return objectMapper.readValue(cleanJsonResponse(response), OptimizationResponse.class);
@@ -153,17 +155,17 @@ public class AIService {
     @Transactional
     @SuppressFBWarnings(value = "VA_FORMAT_STRING_USES_NEWLINE",
             justification = "\\n in prompt text blocks is intentional for AI prompt formatting")
-    public SecurityScanResponse scanForSecurity(SecurityScanRequest request, String username) {
-        checkRateLimit(username);
+    public SecurityScanResponse scanForSecurity(SecurityScanRequest request, String keycloakUserId) {
+        checkRateLimit(keycloakUserId);
 
         String prompt = PromptTemplates.SECURITY_SCAN_PROMPT.formatted(
                 request.getCode(), request.getContext());
 
         long startTime = System.currentTimeMillis();
-        String response = callAI(prompt, username, "SECURITY_SCAN");
+        String response = callAI(prompt, "SECURITY_SCAN");
         long responseTime = System.currentTimeMillis() - startTime;
 
-        logUsage(username, "SECURITY_SCAN", responseTime);
+        logUsage(keycloakUserId, "SECURITY_SCAN", responseTime);
 
         try {
             return objectMapper.readValue(cleanJsonResponse(response), SecurityScanResponse.class);
@@ -177,8 +179,8 @@ public class AIService {
     }
 
     @Transactional
-    public String chat(String message, Long schemaId, String conversationHistory, String username) {
-        checkRateLimit(username);
+    public String chat(String message, Long schemaId, String conversationHistory, String keycloakUserId) {
+        checkRateLimit(keycloakUserId);
 
         String schemaDescription = "No schema loaded";
         if (schemaId != null) {
@@ -191,16 +193,16 @@ public class AIService {
                 schemaDescription, conversationHistory, message);
 
         long startTime = System.currentTimeMillis();
-        String response = callAI(prompt, username, "CHAT");
+        String response = callAI(prompt,"CHAT");
         long responseTime = System.currentTimeMillis() - startTime;
 
-        logUsage(username, "CHAT", responseTime);
+        logUsage(keycloakUserId, "CHAT", responseTime);
 
         return response;
     }
 
    @SuppressWarnings("PMD.UnusedFormalParameter")
-   private String callAI(String prompt, String username, String feature) {
+   private String callAI(String prompt,String feature) {
     int retries = 3;
     while (retries > 0) {
         try {
@@ -223,8 +225,8 @@ public class AIService {
 }
 
 
-    private void checkRateLimit(String username) {
-        User user = userRepository.findByUsername(username)
+    private void checkRateLimit(String keycloakUserId) {
+        User user = userRepository.findByKeycloakUserId(keycloakUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         LocalDateTime dayStart = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0);
@@ -235,9 +237,9 @@ public class AIService {
         }
     }
 
-    private void logUsage(String username, String feature, long responseTimeMs) {
+    private void logUsage(String keycloakUserId, String feature, long responseTimeMs) {
         try {
-            User user = userRepository.findByUsername(username).orElse(null);
+            User user = userRepository.findByKeycloakUserId(keycloakUserId).orElse(null);
             AIUsageLog log = AIUsageLog.builder()
                     .user(user)
                     .feature(feature)
