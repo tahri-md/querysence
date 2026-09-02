@@ -30,14 +30,47 @@ spring:
     locations: classpath:db/migration
 
   ai:
+    # ONLY enable the AI model types QuerySense actually uses
+    model:
+      chat: openai
+      embedding: openai
+      image: none
+      moderation: none
+      audio:
+        speech: none
+        transcription: none
+
+    # Chat → Groq
     openai:
-      api-key: ${GROQ_API_KEY}
-      base-url: ${GROQ_BASE_URL:https://api.groq.com/openai}
       chat:
+        api-key: ${GROQ_API_KEY}
+        base-url: ${GROQ_BASE_URL:https://api.groq.com/openai/v1}
         options:
-          model: ${GROQ_MODEL:llama3-70b-8192}
+          model: ${GROQ_MODEL:llama-3.3-70b-versatile}
           temperature: ${GROQ_TEMPERATURE:0.2}
 
+      # Embeddings → OpenAI
+      embedding:
+        api-key: ${OPENAI_API_KEY}
+        base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+        options:
+          model: ${OPENAI_EMBEDDING_MODEL:text-embedding-3-small}
+
+    # Pinecone
+    vectorstore:
+      pinecone:
+        api-key: ${PINECONE_API_KEY}
+        index-name: ${PINECONE_INDEX_NAME}
+        namespace: ${PINECONE_NAMESPACE}
+
+rag:
+  retrieval:
+    top-k: 3  # Number of similar queries to retrieve
+    similarity-threshold: 0.7
+
+  storage:
+    min-score-to-store: 0.8  # Only store if confidence > 80%
+    max-history: 10000
 # AI Rate Limiting
 ai:
   rate-limit:

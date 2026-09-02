@@ -12,10 +12,11 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class NLToSQLResponse {
-    
+
     private String sql;
     private boolean valid;
     private String errorMessage;
     private String dialect;
     private double confidence;
+    private int examplesUsed;
 }

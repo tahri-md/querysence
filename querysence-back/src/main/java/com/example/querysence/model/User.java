@@ -5,13 +5,13 @@ import java.time.Instant;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
-import groovy.transform.builder.Builder;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -22,7 +22,8 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "users", uniqueConstraints = {@jakarta.persistence.UniqueConstraint(columnNames = {"keycloak_user_id", "username", "email"})})
+@Table(name = "users", uniqueConstraints = {
+        @jakarta.persistence.UniqueConstraint(columnNames = { "keycloak_user_id", "username", "email" }) })
 public class User {
 
     @Id
