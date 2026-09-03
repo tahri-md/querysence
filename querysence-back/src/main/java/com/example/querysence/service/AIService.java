@@ -60,6 +60,7 @@ public class AIService {
             SchemaDefinition schema = schemaRepository
                     .findByIdWithFullDetails(request.getSchemaId())
                     .orElseThrow();
+            validateQuery(request.getQuery());
 
             List<QueryExampleDTO> examples = ragService.findSimilarQueries(
                     request.getQuery(),
@@ -123,6 +124,35 @@ public class AIService {
 
             throw new AIServiceException(e.getMessage());
         }
+    }
+
+    private void validateQuery(String query) {
+        if (query == null || query.trim().isEmpty())
+            throw new BadRequestException("Query cannot be empty");
+        if (query.length() > 5000)
+            throw new BadRequestException("Query too long");
+        String[] dangerousPatterns = {
+                "(?i)\\bignore\\b.*\\b(previous|instruction|prompt|task)\\b",
+                "(?i)\\bforget\\b.*\\b(schema|constraint|rule)\\b",
+                "(?i)\\bsystem\\s+prompt",
+                "(?i)\\byou\\s+are",
+                "(?i)\\byour\\s+task\\s+is",
+                "(?i)\\bnew\\s+task",
+                "(?i)\\boverride",
+                "(?i)\\bexecute\\s+(code|command)",
+                "(?i)\\breturn\\s+(all|sensitive)",
+                "(?i)\\bdrop\\s+table",
+                "(?i)\\bdelete\\s+from",
+                "(?i)\\btruncate"
+        };
+        for (String pattern : dangerousPatterns) {
+            if (query.matches(pattern)) {
+                log.warn("BLocked,potential prompt injection");
+                throw new SecurityException("Your query contains fobidden patterns");
+
+            }
+        }
+
     }
 
     private String buildPromptWithExamples(
@@ -406,7 +436,9 @@ public class AIService {
         if (response == null) {
             return "";
         }
+
         return response
+                .replaceAll("(?s)<think>.*?</think>", "")
                 .replaceAll("```sql\\s*", "")
                 .replaceAll("```\\s*", "")
                 .trim();
