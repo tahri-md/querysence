@@ -3,8 +3,6 @@ package com.example.querysence.controller;
 import java.util.List;
 import java.util.Map;
 
-import javax.validation.Valid;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -22,6 +20,7 @@ import com.example.querysence.model.dto.ProjectResponse;
 import com.example.querysence.service.SchemaManagementService;
 
 import io.swagger.v3.oas.annotations.Operation;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
@@ -29,58 +28,55 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ProjectController {
 
-    private final SchemaManagementService smService;
+        private final SchemaManagementService smService;
 
-    @PostMapping
-    @Operation(summary = "Create a new project")
-    public ResponseEntity<ProjectResponse> createProject(
-            @Valid @RequestBody ProjectCreateRequest request,
-            @AuthenticationPrincipal Jwt jwt) {
+        @PostMapping
+        @Operation(summary = "Create a new project")
+        public ResponseEntity<ProjectResponse> createProject(
+                        @Valid @RequestBody ProjectCreateRequest request,
+                        @AuthenticationPrincipal Jwt jwt) {
 
-        String keycloakUserId = jwt.getSubject();
+                String keycloakUserId = jwt.getSubject();
 
-        return ResponseEntity
-                .status(HttpStatus.CREATED)
-                .body(smService.create(request, keycloakUserId));
-    }
+                return ResponseEntity
+                                .status(HttpStatus.CREATED)
+                                .body(smService.create(request, keycloakUserId));
+        }
 
-    @GetMapping
-    @Operation(summary = "List user's projects")
-    public ResponseEntity<List<ProjectResponse>> listProjects(
-            @AuthenticationPrincipal Jwt jwt) {
+        @GetMapping
+        @Operation(summary = "List user's projects")
+        public ResponseEntity<List<ProjectResponse>> listProjects(
+                        @AuthenticationPrincipal Jwt jwt) {
 
-        String keycloakUserId = jwt.getSubject();
+                String keycloakUserId = jwt.getSubject();
 
-        return ResponseEntity.ok(
-                smService.listByUser(keycloakUserId)
-        );
-    }
+                return ResponseEntity.ok(
+                                smService.listByUser(keycloakUserId));
+        }
 
-    @GetMapping("/{id}")
-    @Operation(summary = "Get project details")
-    public ResponseEntity<ProjectResponse> getProject(
-            @PathVariable Long id,
-            @AuthenticationPrincipal Jwt jwt) {
+        @GetMapping("/{id}")
+        @Operation(summary = "Get project details")
+        public ResponseEntity<ProjectResponse> getProject(
+                        @PathVariable Long id,
+                        @AuthenticationPrincipal Jwt jwt) {
 
-        String keycloakUserId = jwt.getSubject();
+                String keycloakUserId = jwt.getSubject();
 
-        return ResponseEntity.ok(
-                smService.getById(id, keycloakUserId)
-        );
-    }
+                return ResponseEntity.ok(
+                                smService.getById(id, keycloakUserId));
+        }
 
-    @DeleteMapping("/{id}")
-    @Operation(summary = "Delete a project")
-    public ResponseEntity<Map<String, String>> deleteProject(
-            @PathVariable Long id,
-            @AuthenticationPrincipal Jwt jwt) {
+        @DeleteMapping("/{id}")
+        @Operation(summary = "Delete a project")
+        public ResponseEntity<Map<String, String>> deleteProject(
+                        @PathVariable Long id,
+                        @AuthenticationPrincipal Jwt jwt) {
 
-        String keycloakUserId = jwt.getSubject();
+                String keycloakUserId = jwt.getSubject();
 
-        smService.delete(id, keycloakUserId);
+                smService.delete(id, keycloakUserId);
 
-        return ResponseEntity.ok(
-                Map.of("message", "Project deleted successfully")
-        );
-    }
+                return ResponseEntity.ok(
+                                Map.of("message", "Project deleted successfully"));
+        }
 }
